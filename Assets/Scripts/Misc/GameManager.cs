@@ -30,7 +30,10 @@ public class GameManager : MonoBehaviour
 
     public void QuitButton()
     {
-        Debug.LogWarning("Does not work in the Unity Editor!  You silly goose!");
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
         Application.Quit();
+#endif
     }
 }

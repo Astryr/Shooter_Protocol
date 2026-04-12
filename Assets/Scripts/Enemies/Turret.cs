@@ -28,9 +28,31 @@ public class Turret : MonoBehaviour
         while(player) 
         {
             yield return new WaitForSeconds(fireRate);
-            Projectile newProjectile = Instantiate(projectilePrefab, projectileSpawnPoint.position, Quaternion.identity).GetComponent<Projectile>();
-            newProjectile.transform.LookAt(playerTargetPoint);
-            newProjectile.Init(damage);
+
+            if (CanSeePlayer())
+            {
+                Projectile newProjectile = Instantiate(projectilePrefab, projectileSpawnPoint.position, Quaternion.identity).GetComponent<Projectile>();
+                newProjectile.transform.LookAt(playerTargetPoint);
+                newProjectile.Init(damage);
+            }
         }
+    }
+
+    bool CanSeePlayer()
+    {
+        if (player == null || playerTargetPoint == null) return false;
+
+        Vector3 directionToPlayer = playerTargetPoint.position - projectileSpawnPoint.position;
+
+        // Lanzamos un raycast desde el cañon hacia el jugador para ver si hay obstáculos
+        if (Physics.Raycast(projectileSpawnPoint.position, directionToPlayer, out RaycastHit hit))
+        {
+            // Verificamos si lo que golpeó el rayo pertenece al jugador
+            if (hit.collider.GetComponentInParent<PlayerHealth>() != null)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }
