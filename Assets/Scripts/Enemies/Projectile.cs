@@ -24,12 +24,30 @@ public class Projectile : MonoBehaviour
         this.damage = damage;
     }
 
+    public void SetColor(Color color)
+    {
+        Renderer renderer = GetComponentInChildren<Renderer>();
+        if (renderer != null)
+        {
+            Material mat = renderer.material;
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", color);
+            mat.color = color;
+        }
+    }
+
     void OnTriggerEnter(Collider other) 
     {
+        // Evitar que el proyectil se destruya al colisionar con el propio enemigo o sus partes
+        if (other.GetComponentInParent<EnemyHealth>() != null) return;
+
         PlayerHealth playerHealth = other.GetComponent<PlayerHealth>();
         playerHealth?.TakeDamage(damage);
 
-        Instantiate(projectileHitVFX, transform.position, Quaternion.identity);
+        if (projectileHitVFX != null)
+        {
+            Instantiate(projectileHitVFX, transform.position, Quaternion.identity);
+        }
         Destroy(this.gameObject);
     }
 }
