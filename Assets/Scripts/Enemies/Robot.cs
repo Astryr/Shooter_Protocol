@@ -2,6 +2,21 @@ using StarterAssets;
 using UnityEngine;
 using UnityEngine.AI;
 
+/// <summary>
+/// Robot: enemigo de melee con FSM de 3 estados.
+///
+/// INTEGRACIÓN PATHFINDING + STEERING:
+///   • Pathfinding: NavMesh (A*) — calcula la ruta óptima alrededor de obstáculos.
+///   • Steering:    Arrive (patrulla) + Pursue (persecución) via SteeringAgent.
+///
+/// Flujo de decisión:
+///   FSM (Idle/Patrol/Chase)
+///     → SteeringAgent.ArriveTo() o PursueTarget()
+///       → SteeringBehaviors calcula velocidad local
+///       → NavMesh.desiredVelocity (próximo waypoint del path A*)
+///       → Blending → NavMeshAgent.velocity
+/// </summary>
+[RequireComponent(typeof(SteeringAgent))]
 public class Robot : MonoBehaviour
 {
     public enum RobotState
@@ -11,7 +26,7 @@ public class Robot : MonoBehaviour
         Chase
     }
 
-    [Header("State Machine Parameters")]
+    [Header("State Machine")]
     [SerializeField] RobotState currentState = RobotState.Idle;
     [SerializeField] float visionRange = 15f;
     [SerializeField] float patrolRadius = 10f;
@@ -22,7 +37,8 @@ public class Robot : MonoBehaviour
     [SerializeField] float losCheckInterval = 0.15f;
 
     FirstPersonController player;
-    NavMeshAgent agent;
+    SteeringAgent steeringAgent;
+
     float waitTimer = 0f;
     float losTimer = 0f;
     bool cachedCanSeePlayer = false;
@@ -31,19 +47,20 @@ public class Robot : MonoBehaviour
 
     void Awake()
     {
-        agent = GetComponent<NavMeshAgent>();
+        steeringAgent = GetComponent<SteeringAgent>();
     }
 
     void Start()
     {
         player = FindFirstObjectByType<FirstPersonController>();
-        agent.stoppingDistance = 0f;
+        steeringAgent.NavAgent.stoppingDistance = 0f;
     }
 
     void Update()
     {
         if (!player) return;
 
+        // Throttle del Raycast de LoS (no raycastear cada frame)
         losTimer += Time.deltaTime;
         if (losTimer >= losCheckInterval)
         {
@@ -51,19 +68,18 @@ public class Robot : MonoBehaviour
             cachedCanSeePlayer = CheckLineOfSight();
         }
 
+        // FSM — Toma de Decisiones
         switch (currentState)
         {
-            case RobotState.Idle:
-                UpdateIdleState();
-                break;
-            case RobotState.Patrol:
-                UpdatePatrolState();
-                break;
-            case RobotState.Chase:
-                UpdateChaseState();
-                break;
+            case RobotState.Idle:   UpdateIdleState();   break;
+            case RobotState.Patrol: UpdatePatrolState(); break;
+            case RobotState.Chase:  UpdateChaseState();  break;
         }
     }
+
+    // ------------------------------------------------------------------
+    // Estados FSM
+    // ------------------------------------------------------------------
 
     void UpdateIdleState()
     {
@@ -76,8 +92,14 @@ public class Robot : MonoBehaviour
         waitTimer += Time.deltaTime;
         if (waitTimer >= idleWaitTime)
         {
-            SetRandomPatrolDestination();
-            currentState = RobotState.Patrol;
+            waitTimer = 0f;
+            Vector3 patrolDest = SampleRandomPatrolPoint();
+            if (patrolDest != Vector3.zero)
+            {
+                // STEERING: Arrive — se mueve al waypoint y desacelera al llegar
+                steeringAgent.ArriveTo(patrolDest);
+                currentState = RobotState.Patrol;
+            }
         }
     }
 
@@ -89,8 +111,10 @@ public class Robot : MonoBehaviour
             return;
         }
 
-        if (!agent.pathPending && agent.remainingDistance < 0.5f)
+        NavMeshAgent nav = steeringAgent.NavAgent;
+        if (!nav.pathPending && nav.remainingDistance < 0.5f)
         {
+            steeringAgent.Stop();
             waitTimer = 0f;
             currentState = RobotState.Idle;
         }
@@ -100,14 +124,20 @@ public class Robot : MonoBehaviour
     {
         if (!cachedCanSeePlayer)
         {
+            steeringAgent.Stop();
             waitTimer = 0f;
             currentState = RobotState.Idle;
-            agent.ResetPath();
             return;
         }
 
-        agent.SetDestination(player.transform.position);
+        // STEERING: Pursue — predice la posición futura del jugador e intercepta
+        // Más efectivo que Seek simple: el robot "adelanta" al jugador.
+        steeringAgent.PursueTarget(player.transform);
     }
+
+    // ------------------------------------------------------------------
+    // Utilidades
+    // ------------------------------------------------------------------
 
     bool CheckLineOfSight()
     {
@@ -120,26 +150,22 @@ public class Robot : MonoBehaviour
         Vector3 direction = (player.transform.position + Vector3.up) - origin;
 
         if (Physics.Raycast(origin, direction, out RaycastHit hit, visionRange, visionLayers))
-        {
             return hit.collider.CompareTag(PLAYER_STRING);
-        }
+
         return false;
     }
 
-    void SetRandomPatrolDestination()
+    Vector3 SampleRandomPatrolPoint()
     {
-        Vector3 randomDirection = Random.insideUnitSphere * patrolRadius;
-        randomDirection += transform.position;
-
-        if (NavMesh.SamplePosition(randomDirection, out NavMeshHit hit, patrolRadius, 1))
-        {
-            agent.SetDestination(hit.position);
-        }
+        Vector3 randomDir = Random.insideUnitSphere * patrolRadius + transform.position;
+        if (NavMesh.SamplePosition(randomDir, out NavMeshHit hit, patrolRadius, 1))
+            return hit.position;
+        return Vector3.zero;
     }
 
-    void OnTriggerEnter(Collider other) 
+    void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag(PLAYER_STRING)) 
+        if (other.CompareTag(PLAYER_STRING))
         {
             EnemyHealth enemyHealth = GetComponent<EnemyHealth>();
             enemyHealth?.SelfDestruct();
