@@ -17,9 +17,15 @@ public class Robot : MonoBehaviour
     [SerializeField] float patrolRadius = 10f;
     [SerializeField] float idleWaitTime = 2f;
 
+    [Header("Line of Sight")]
+    [SerializeField] LayerMask visionLayers;
+    [SerializeField] float losCheckInterval = 0.15f;
+
     FirstPersonController player;
     NavMeshAgent agent;
     float waitTimer = 0f;
+    float losTimer = 0f;
+    bool cachedCanSeePlayer = false;
 
     const string PLAYER_STRING = "Player";
 
@@ -31,14 +37,20 @@ public class Robot : MonoBehaviour
     void Start()
     {
         player = FindFirstObjectByType<FirstPersonController>();
-        agent.stoppingDistance = 0f; // Evita que pare antes de tocarlo
+        agent.stoppingDistance = 0f;
     }
 
     void Update()
     {
         if (!player) return;
 
-        // Implementación de Sistema de Toma de Decisiones: FSM (Finite State Machine)
+        losTimer += Time.deltaTime;
+        if (losTimer >= losCheckInterval)
+        {
+            losTimer = 0f;
+            cachedCanSeePlayer = CheckLineOfSight();
+        }
+
         switch (currentState)
         {
             case RobotState.Idle:
@@ -55,7 +67,7 @@ public class Robot : MonoBehaviour
 
     void UpdateIdleState()
     {
-        if (CanSeePlayer())
+        if (cachedCanSeePlayer)
         {
             currentState = RobotState.Chase;
             return;
@@ -71,13 +83,12 @@ public class Robot : MonoBehaviour
 
     void UpdatePatrolState()
     {
-        if (CanSeePlayer())
+        if (cachedCanSeePlayer)
         {
             currentState = RobotState.Chase;
             return;
         }
 
-        // Si ya llegó al destino de patrullaje
         if (!agent.pathPending && agent.remainingDistance < 0.5f)
         {
             waitTimer = 0f;
@@ -87,34 +98,30 @@ public class Robot : MonoBehaviour
 
     void UpdateChaseState()
     {
-        if (!CanSeePlayer())
+        if (!cachedCanSeePlayer)
         {
-            // Si pierde la Line of Sight (LoS) vuelve a Idle luego de un rato
             waitTimer = 0f;
             currentState = RobotState.Idle;
-            agent.ResetPath(); // Detiene su avance anterior
+            agent.ResetPath();
             return;
         }
 
         agent.SetDestination(player.transform.position);
     }
 
-    bool CanSeePlayer()
+    bool CheckLineOfSight()
     {
         if (player == null) return false;
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
-        if (distanceToPlayer <= visionRange)
+        if (distanceToPlayer > visionRange) return false;
+
+        Vector3 origin = transform.position + Vector3.up;
+        Vector3 direction = (player.transform.position + Vector3.up) - origin;
+
+        if (Physics.Raycast(origin, direction, out RaycastHit hit, visionRange, visionLayers))
         {
-            // Sistema Line Of Sight (LoS): Emite un Raycast para ver obstáculos
-            Vector3 directionToPlayer = (player.transform.position + Vector3.up) - (transform.position + Vector3.up); // Apuntar al centro del cuerpo
-            if (Physics.Raycast(transform.position + Vector3.up, directionToPlayer, out RaycastHit hit, visionRange))
-            {
-                if (hit.collider.CompareTag(PLAYER_STRING))
-                {
-                    return true;
-                }
-            }
+            return hit.collider.CompareTag(PLAYER_STRING);
         }
         return false;
     }
@@ -135,8 +142,7 @@ public class Robot : MonoBehaviour
         if (other.CompareTag(PLAYER_STRING)) 
         {
             EnemyHealth enemyHealth = GetComponent<EnemyHealth>();
-            if(enemyHealth != null)
-                enemyHealth.SelfDestruct();
+            enemyHealth?.SelfDestruct();
         }
     }
 }

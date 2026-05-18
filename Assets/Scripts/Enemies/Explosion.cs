@@ -22,7 +22,7 @@ public class Explosion : MonoBehaviour
 
         foreach (Collider hitCollider in hitColliders)
         {
-            PlayerHealth playerhealth = hitCollider.GetComponent<PlayerHealth>();
+            PlayerHealth playerhealth = hitCollider.GetComponentInParent<PlayerHealth>();
 
             if (!playerhealth) continue;
 

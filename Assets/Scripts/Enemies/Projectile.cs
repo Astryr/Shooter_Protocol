@@ -6,8 +6,10 @@ public class Projectile : MonoBehaviour
     [SerializeField] GameObject projectileHitVFX;
 
     Rigidbody rb;
-
     int damage;
+
+    static readonly int EmissionColorID = Shader.PropertyToID("_EmissionColor");
+    static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
     void Awake()
     {
@@ -26,22 +28,21 @@ public class Projectile : MonoBehaviour
 
     public void SetColor(Color color)
     {
-        Renderer renderer = GetComponentInChildren<Renderer>();
-        if (renderer != null)
-        {
-            Material mat = renderer.material;
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", color);
-            mat.color = color;
-        }
+        Renderer rend = GetComponentInChildren<Renderer>();
+        if (rend == null) return;
+
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        rend.GetPropertyBlock(block);
+        block.SetColor(EmissionColorID, color);
+        block.SetColor(BaseColorID, color);
+        rend.SetPropertyBlock(block);
     }
 
     void OnTriggerEnter(Collider other) 
     {
-        // Evitar que el proyectil se destruya al colisionar con el propio enemigo o sus partes
         if (other.GetComponentInParent<EnemyHealth>() != null) return;
 
-        PlayerHealth playerHealth = other.GetComponent<PlayerHealth>();
+        PlayerHealth playerHealth = other.GetComponentInParent<PlayerHealth>();
         playerHealth?.TakeDamage(damage);
 
         if (projectileHitVFX != null)

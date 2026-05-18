@@ -1,7 +1,6 @@
 using StarterAssets;
 using UnityEngine;
 using UnityEngine.AI;
-using System.Collections;
 
 public class FleeingRobot : MonoBehaviour
 {
@@ -15,23 +14,33 @@ public class FleeingRobot : MonoBehaviour
     [Header("State Machine")]
     [SerializeField] FleeingState currentState = FleeingState.Patrol;
     [SerializeField] float visionRange = 20f;
-    [SerializeField] float safeDistance = 8f; // Si el jugador se acerca más que esto, huye
+    [SerializeField] float safeDistance = 8f;
     [SerializeField] float patrolRadius = 15f;
-    
+
     [Header("Attack Settings")]
     [SerializeField] GameObject projectilePrefab;
     [SerializeField] Transform projectileSpawnPoint;
     [SerializeField] float fireRate = 2f;
     [SerializeField] int damage = 1;
 
+    [Header("Line of Sight")]
+    [SerializeField] LayerMask visionLayers;
+    [SerializeField] float losCheckInterval = 0.15f;
+
     [Header("Visuals")]
     [SerializeField] Renderer glowingSphereRenderer;
-    [SerializeField] [ColorUsage(true, true)] Color glowColor = Color.yellow; // Soporta HDR para el brillo
+    [SerializeField] [ColorUsage(true, true)] Color glowColor = Color.yellow;
+
+    static readonly int EmissionColorID = Shader.PropertyToID("_EmissionColor");
+    static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
     FirstPersonController player;
     NavMeshAgent agent;
     float waitTimer = 0f;
     float fireTimer = 0f;
+    float losTimer = 0f;
+    bool cachedCanSeePlayer = false;
+    float cachedDistanceToPlayer = float.MaxValue;
 
     const string PLAYER_STRING = "Player";
 
@@ -45,13 +54,13 @@ public class FleeingRobot : MonoBehaviour
         player = FindFirstObjectByType<FirstPersonController>();
         SetRandomPatrolDestination();
 
-        // Crear una instancia única del material para este robot
         if (glowingSphereRenderer != null)
         {
-            Material uniqueMat = glowingSphereRenderer.material;
-            uniqueMat.EnableKeyword("_EMISSION");
-            uniqueMat.SetColor("_EmissionColor", glowColor);
-            uniqueMat.color = glowColor;
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            glowingSphereRenderer.GetPropertyBlock(block);
+            block.SetColor(EmissionColorID, glowColor);
+            block.SetColor(BaseColorID, glowColor);
+            glowingSphereRenderer.SetPropertyBlock(block);
         }
     }
 
@@ -59,15 +68,19 @@ public class FleeingRobot : MonoBehaviour
     {
         if (!player) return;
 
-        float distanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
-        bool hasLoS = CanSeePlayer();
+        losTimer += Time.deltaTime;
+        if (losTimer >= losCheckInterval)
+        {
+            losTimer = 0f;
+            cachedDistanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
+            cachedCanSeePlayer = CheckLineOfSight();
+        }
 
-        // Toma de decisiones (FSM basada en distancia y LoS)
-        if (distanceToPlayer < safeDistance && hasLoS)
+        if (cachedDistanceToPlayer < safeDistance && cachedCanSeePlayer)
         {
             currentState = FleeingState.Flee;
         }
-        else if (distanceToPlayer <= visionRange && hasLoS)
+        else if (cachedDistanceToPlayer <= visionRange && cachedCanSeePlayer)
         {
             currentState = FleeingState.Attack;
         }
@@ -110,14 +123,12 @@ public class FleeingRobot : MonoBehaviour
 
     void UpdateAttackState()
     {
-        agent.ResetPath(); // Se queda quieto para disparar
-        
-        // Mira hacia el jugador
+        agent.ResetPath();
+
         Vector3 lookPos = player.transform.position;
         lookPos.y = transform.position.y;
         transform.LookAt(lookPos);
 
-        // Lógica de disparo
         fireTimer += Time.deltaTime;
         if (fireTimer >= fireRate)
         {
@@ -128,7 +139,6 @@ public class FleeingRobot : MonoBehaviour
 
     void UpdateFleeState()
     {
-        // Calcula la dirección opuesta al jugador
         Vector3 directionAwayFromPlayer = transform.position - player.transform.position;
         Vector3 fleePosition = transform.position + directionAwayFromPlayer.normalized * 5f;
 
@@ -140,26 +150,25 @@ public class FleeingRobot : MonoBehaviour
 
     void ShootProjectile()
     {
-        if (projectilePrefab != null && projectileSpawnPoint != null)
-        {
-            Projectile newProjectile = Instantiate(projectilePrefab, projectileSpawnPoint.position, Quaternion.identity).GetComponent<Projectile>();
-            newProjectile.transform.LookAt(player.transform.position + Vector3.up); // Apuntar al cuerpo
-            newProjectile.Init(damage);
-            newProjectile.SetColor(glowColor);
-        }
+        if (projectilePrefab == null || projectileSpawnPoint == null) return;
+
+        Projectile newProjectile = Instantiate(projectilePrefab, projectileSpawnPoint.position, Quaternion.identity)
+            .GetComponent<Projectile>();
+        newProjectile.transform.LookAt(player.transform.position + Vector3.up);
+        newProjectile.Init(damage);
+        newProjectile.SetColor(glowColor);
     }
 
-    bool CanSeePlayer()
+    bool CheckLineOfSight()
     {
         if (player == null) return false;
 
-        Vector3 directionToPlayer = (player.transform.position + Vector3.up) - (transform.position + Vector3.up);
-        if (Physics.Raycast(transform.position + Vector3.up, directionToPlayer, out RaycastHit hit, visionRange))
+        Vector3 origin = transform.position + Vector3.up;
+        Vector3 direction = (player.transform.position + Vector3.up) - origin;
+
+        if (Physics.Raycast(origin, direction, out RaycastHit hit, visionRange, visionLayers))
         {
-            if (hit.collider.CompareTag(PLAYER_STRING))
-            {
-                return true;
-            }
+            return hit.collider.CompareTag(PLAYER_STRING);
         }
         return false;
     }
@@ -168,7 +177,7 @@ public class FleeingRobot : MonoBehaviour
     {
         Vector3 randomDirection = Random.insideUnitSphere * patrolRadius;
         randomDirection += transform.position;
-        
+
         if (NavMesh.SamplePosition(randomDirection, out NavMeshHit hit, patrolRadius, 1))
         {
             agent.SetDestination(hit.position);
@@ -180,8 +189,7 @@ public class FleeingRobot : MonoBehaviour
         if (other.CompareTag(PLAYER_STRING)) 
         {
             EnemyHealth enemyHealth = GetComponent<EnemyHealth>();
-            if(enemyHealth != null)
-                enemyHealth.SelfDestruct();
+            enemyHealth?.SelfDestruct();
         }
     }
 }

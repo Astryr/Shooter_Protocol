@@ -13,12 +13,17 @@ public abstract class Pickup : MonoBehaviour
 
     void OnTriggerEnter(Collider other) 
     {
-        if (other.CompareTag(PLAYER_STRING))
+        if (!other.CompareTag(PLAYER_STRING)) return;
+
+        ActiveWeapon activeWeapon = other.GetComponentInChildren<ActiveWeapon>();
+        if (activeWeapon == null)
         {
-            ActiveWeapon activeWeapon = other.GetComponentInChildren<ActiveWeapon>();
-            OnPickup(activeWeapon);
-            Destroy(this.gameObject);
+            Debug.LogWarning($"[Pickup] No se encontró ActiveWeapon en el jugador. El pickup no se aplicará.", this);
+            return;
         }
+
+        OnPickup(activeWeapon);
+        Destroy(this.gameObject);
     }
 
     protected abstract void OnPickup(ActiveWeapon activeWeapon);
