@@ -190,6 +190,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03c797d48843c984aa111f6084998ebb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  currentState: 0
+  visionRange: 15
+  patrolRadius: 10
+  patrolWaitTime: 2
 --- !u!114 &1639720867456174954
 MonoBehaviour:
   m_ObjectHideFlags: 0

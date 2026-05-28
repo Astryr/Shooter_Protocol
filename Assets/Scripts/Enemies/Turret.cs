@@ -1,6 +1,10 @@
 using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// Torreta — dispara solo si tiene línea de visión directa al jugador (LoS).
+/// Obstáculos y paredes bloquean el disparo.
+/// </summary>
 public class Turret : MonoBehaviour
 {
     [SerializeField] GameObject projectilePrefab;
@@ -20,18 +24,24 @@ public class Turret : MonoBehaviour
 
     void Update()
     {
-        turretHead.LookAt(playerTargetPoint);
+        if (playerTargetPoint != null)
+            turretHead.LookAt(playerTargetPoint);
     }
 
     IEnumerator FireRoutine()
     {
-        while(player) 
+        while (player)
         {
             yield return new WaitForSeconds(fireRate);
 
             if (CanSeePlayer())
             {
-                Projectile newProjectile = Instantiate(projectilePrefab, projectileSpawnPoint.position, Quaternion.identity).GetComponent<Projectile>();
+                Projectile newProjectile = Instantiate(
+                    projectilePrefab,
+                    projectileSpawnPoint.position,
+                    Quaternion.identity
+                ).GetComponent<Projectile>();
+
                 newProjectile.transform.LookAt(playerTargetPoint);
                 newProjectile.Init(damage);
             }
@@ -40,19 +50,28 @@ public class Turret : MonoBehaviour
 
     bool CanSeePlayer()
     {
-        if (player == null || playerTargetPoint == null) return false;
+        if (player == null || playerTargetPoint == null || projectileSpawnPoint == null)
+            return false;
 
-        Vector3 directionToPlayer = playerTargetPoint.position - projectileSpawnPoint.position;
+        Vector3 origin = projectileSpawnPoint.position;
+        Vector3 target = playerTargetPoint.position;
+        Vector3 direction = target - origin;
+        float distance = direction.magnitude;
 
-        // Lanzamos un raycast desde el cañon hacia el jugador para ver si hay obstáculos
-        if (Physics.Raycast(projectileSpawnPoint.position, directionToPlayer, out RaycastHit hit))
+        if (distance < 0.01f) return true;
+
+        // LoS: el primer obstáculo en el camino debe ser el jugador
+        if (Physics.Raycast(
+            origin,
+            direction.normalized,
+            out RaycastHit hit,
+            distance,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Ignore))
         {
-            // Verificamos si lo que golpeó el rayo pertenece al jugador
-            if (hit.collider.GetComponentInParent<PlayerHealth>() != null)
-            {
-                return true;
-            }
+            return hit.collider.GetComponentInParent<PlayerHealth>() != null;
         }
+
         return false;
     }
 }

@@ -3,30 +3,7 @@ using UnityEngine.AI;
 
 /// <summary>
 /// Integra Pathfinding (A* via NavMesh) con Steering Behaviors locales.
-///
-/// ARQUITECTURA DE INTEGRACIÓN:
-///
-///   [FSM en Robot/FleeingRobot]
-///         |
-///         | llama a SeekTo / ArriveTo / PursueTarget / EvadeTarget / Wander / FleeTo
-///         ↓
-///   [SteeringAgent]  ←── este componente
-///         |                  |
-///         |                  ├── Pathfinding: NavMesh A* calcula la ruta óptima
-///         |                  |   alrededor de obstáculos del mapa.
-///         |                  |   Resultado: agent.desiredVelocity (dirección al
-///         |                  |   siguiente waypoint del path)
-///         |                  |
-///         |                  └── Steering: SteeringBehaviors.cs calcula la
-///         |                      velocidad deseada según el behavior activo.
-///         |
-///         | Blending final:
-///         |   velocity = Lerp(navDesiredVelocity, steeringVelocity, steeringBlend)
-///         ↓
-///   [NavMeshAgent.velocity] → mueve el agente respetando el NavMesh
-///
-/// El pathfinding resuelve el "macromovimiento" (qué camino tomar),
-/// el steering resuelve el "micromovimiento" (cómo se mueve localmente).
+/// El NavMeshAgent mueve al agente; los steering behaviors definen el destino y la velocidad.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class SteeringAgent : MonoBehaviour
@@ -43,54 +20,35 @@ public class SteeringAgent : MonoBehaviour
     }
 
     [Header("Steering Parameters")]
-    [Tooltip("Radio de frenado para Arrive: empieza a desacelerar dentro de esta distancia al objetivo")]
     [SerializeField] float arrivalSlowingRadius = 3f;
-
-    [Tooltip("Radio del círculo de Wander")]
     [SerializeField] float wanderRadius = 2.5f;
-
-    [Tooltip("Distancia a la que se proyecta el círculo de Wander frente al agente")]
     [SerializeField] float wanderDistance = 4f;
-
-    [Tooltip("Velocidad de variación aleatoria del ángulo de Wander (rad/seg)")]
     [SerializeField] float wanderJitter = 2.5f;
-
-    [Tooltip("Peso del steering behavior vs la dirección del path NavMesh. " +
-             "0 = solo pathfinding, 1 = solo steering.")]
-    [Range(0f, 1f)]
-    [SerializeField] float steeringBlend = 0.45f;
 
     [Header("Debug / Visualización")]
     [SerializeField] bool showGizmos = true;
 
     NavMeshAgent navAgent;
+    float defaultMaxSpeed;
     float wanderAngle = 0f;
 
-    // Estado del behavior activo y referencias de target
     ActiveBehavior currentBehavior = ActiveBehavior.None;
     Vector3 targetPosition;
     Transform targetTransform;
-
-    // Velocidad de steering computada este frame (para Gizmos)
     Vector3 debugSteeringVelocity;
 
-    // ------------------------------------------------------------------
-    // Propiedades públicas de lectura
-    // ------------------------------------------------------------------
-
-    /// <summary>Acceso directo al NavMeshAgent subyacente.</summary>
     public NavMeshAgent NavAgent => navAgent;
-
-    /// <summary>Behavior de steering actualmente activo.</summary>
     public ActiveBehavior CurrentBehavior => currentBehavior;
-
-    // ------------------------------------------------------------------
-    // Unity Messages
-    // ------------------------------------------------------------------
 
     void Awake()
     {
         navAgent = GetComponent<NavMeshAgent>();
+        defaultMaxSpeed = navAgent.speed;
+    }
+
+    void Start()
+    {
+        EnsureOnNavMesh();
     }
 
     void Update()
@@ -98,31 +56,30 @@ public class SteeringAgent : MonoBehaviour
         ApplySteering();
     }
 
-    // ------------------------------------------------------------------
-    // API pública — la FSM del enemigo llama estos métodos
-    // ------------------------------------------------------------------
+    void EnsureOnNavMesh()
+    {
+        if (navAgent.isOnNavMesh) return;
 
-    /// <summary>
-    /// Seek: se mueve directamente hacia la posición dada a velocidad máxima.
-    /// NavMesh calcula la ruta A*, steering aplica la fuerza de Seek localmente.
-    /// </summary>
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+            navAgent.Warp(hit.position);
+    }
+
     public void SeekTo(Vector3 position)
     {
         currentBehavior = ActiveBehavior.Seek;
         targetPosition = position;
+        navAgent.isStopped = false;
+        navAgent.speed = defaultMaxSpeed;
         navAgent.SetDestination(position);
     }
 
-    /// <summary>
-    /// Flee: calcula un punto de huida y usa NavMesh para llegar a él.
-    /// Steering aplica la fuerza de Flee para el movimiento local.
-    /// </summary>
     public void FleeTo(Vector3 threatPosition)
     {
         currentBehavior = ActiveBehavior.Flee;
         targetPosition = threatPosition;
+        navAgent.isStopped = false;
+        navAgent.speed = defaultMaxSpeed;
 
-        // NavMesh destino: punto en la dirección opuesta a la amenaza
         Vector3 fleeDir = (transform.position - threatPosition).normalized;
         float fleeRange = navAgent.speed * 2.5f;
         Vector3 fleeTarget = transform.position + fleeDir * fleeRange;
@@ -131,86 +88,79 @@ public class SteeringAgent : MonoBehaviour
             navAgent.SetDestination(hit.position);
     }
 
-    /// <summary>
-    /// Arrive: se mueve hacia la posición y desacelera suavemente al llegar.
-    /// Ideal para waypoints de patrulla — no sobresobrepasa el destino.
-    /// NavMesh calcula la ruta, Arrive controla la velocidad local.
-    /// </summary>
     public void ArriveTo(Vector3 position)
     {
         currentBehavior = ActiveBehavior.Arrive;
         targetPosition = position;
+        navAgent.isStopped = false;
+        navAgent.speed = defaultMaxSpeed;
         navAgent.SetDestination(position);
     }
 
-    /// <summary>
-    /// Wander: movimiento aleatorio orgánico. El steering genera una dirección
-    /// aleatoria continua; NavMesh asegura que el agente no salga del mapa.
-    /// </summary>
     public void WanderAround()
     {
         currentBehavior = ActiveBehavior.Wander;
+        navAgent.isStopped = false;
+        navAgent.speed = defaultMaxSpeed;
     }
 
-    /// <summary>
-    /// Pursue: predice la posición futura del objetivo y usa NavMesh para
-    /// ir hacia allá (más efectivo que Seek simple: intercepta en lugar de perseguir).
-    /// </summary>
     public void PursueTarget(Transform target)
     {
         currentBehavior = ActiveBehavior.Pursue;
         targetTransform = target;
+        navAgent.isStopped = false;
+        navAgent.speed = defaultMaxSpeed;
     }
 
-    /// <summary>
-    /// Evade: predice la posición futura de la amenaza y huye de ese punto.
-    /// Inverso de Pursue. NavMesh busca camino de escape; Evade calcula hacia dónde.
-    /// </summary>
     public void EvadeTarget(Transform target)
     {
         currentBehavior = ActiveBehavior.Evade;
         targetTransform = target;
+        navAgent.isStopped = false;
+        navAgent.speed = defaultMaxSpeed;
     }
 
-    /// <summary>Detiene el agente y limpia el behavior activo.</summary>
     public void Stop()
     {
         currentBehavior = ActiveBehavior.None;
+        navAgent.isStopped = true;
         navAgent.ResetPath();
+        navAgent.speed = defaultMaxSpeed;
         debugSteeringVelocity = Vector3.zero;
     }
-
-    // ------------------------------------------------------------------
-    // Lógica interna de steering + pathfinding
-    // ------------------------------------------------------------------
 
     void ApplySteering()
     {
         if (!navAgent.isOnNavMesh) return;
         if (currentBehavior == ActiveBehavior.None) return;
 
-        float speed = navAgent.speed;
+        float speed = defaultMaxSpeed;
         Vector3 steeringVelocity = Vector3.zero;
 
         switch (currentBehavior)
         {
-            // ── Seek ──────────────────────────────────────────────────
             case ActiveBehavior.Seek:
                 steeringVelocity = SteeringBehaviors.Seek(transform.position, targetPosition, speed);
+                navAgent.SetDestination(targetPosition);
                 break;
 
-            // ── Flee ──────────────────────────────────────────────────
             case ActiveBehavior.Flee:
                 steeringVelocity = SteeringBehaviors.Flee(transform.position, targetPosition, speed);
                 break;
 
-            // ── Arrive ────────────────────────────────────────────────
             case ActiveBehavior.Arrive:
                 steeringVelocity = SteeringBehaviors.Arrive(
                     transform.position, targetPosition, speed, arrivalSlowingRadius);
+
+                float distance = Vector3.Distance(transform.position, targetPosition);
+                navAgent.speed = Mathf.Clamp(
+                    distance / Mathf.Max(arrivalSlowingRadius, 0.01f) * speed,
+                    speed * 0.25f,
+                    speed);
+
+                navAgent.SetDestination(targetPosition);
                 break;
 
-            // ── Wander ────────────────────────────────────────────────
             case ActiveBehavior.Wander:
                 steeringVelocity = SteeringBehaviors.Wander(
                     transform.position, transform.forward,
@@ -218,17 +168,13 @@ public class SteeringAgent : MonoBehaviour
                     wanderRadius, wanderDistance, wanderJitter,
                     speed);
 
-                // Para Wander, usamos la velocidad de steering directamente
-                // como destino NavMesh (el pathfinding garantiza que esté en el mapa)
                 Vector3 wanderDest = transform.position + steeringVelocity.normalized * wanderDistance;
                 if (NavMesh.SamplePosition(wanderDest, out NavMeshHit wanderHit, wanderDistance * 1.5f, NavMesh.AllAreas))
                     navAgent.SetDestination(wanderHit.position);
 
                 debugSteeringVelocity = steeringVelocity;
-                // En Wander dejamos que NavMesh controle la velocidad final
                 return;
 
-            // ── Pursue ────────────────────────────────────────────────
             case ActiveBehavior.Pursue:
                 if (targetTransform != null)
                 {
@@ -236,14 +182,12 @@ public class SteeringAgent : MonoBehaviour
                     steeringVelocity = SteeringBehaviors.Pursue(
                         transform.position, targetTransform.position, targetVel, speed);
 
-                    // NavMesh destino: posición predicha del objetivo
                     float lookahead = Vector3.Distance(transform.position, targetTransform.position) / Mathf.Max(speed, 0.01f);
                     Vector3 predicted = targetTransform.position + targetVel * lookahead;
                     navAgent.SetDestination(predicted);
                 }
                 break;
 
-            // ── Evade ─────────────────────────────────────────────────
             case ActiveBehavior.Evade:
                 if (targetTransform != null)
                 {
@@ -251,7 +195,6 @@ public class SteeringAgent : MonoBehaviour
                     steeringVelocity = SteeringBehaviors.Evade(
                         transform.position, targetTransform.position, threatVel, speed);
 
-                    // NavMesh destino: punto opuesto a la posición predicha de la amenaza
                     float lookahead = Vector3.Distance(transform.position, targetTransform.position) / Mathf.Max(speed, 0.01f);
                     Vector3 predictedThreat = targetTransform.position + threatVel * lookahead;
                     Vector3 evadeTarget = transform.position + (transform.position - predictedThreat).normalized * speed * 2f;
@@ -263,33 +206,8 @@ public class SteeringAgent : MonoBehaviour
         }
 
         debugSteeringVelocity = steeringVelocity;
-
-        // ------------------------------------------------------------------
-        // BLENDING: Combina la dirección del path NavMesh con el steering
-        //
-        //   navVelocity    = desiredVelocity del NavMeshAgent
-        //                    (apunta al siguiente waypoint del path A*)
-        //   steeringVelocity = velocidad deseada según el behavior activo
-        //
-        //   finalVelocity  = Lerp(navVelocity, steeringVelocity, steeringBlend)
-        //
-        // steeringBlend = 0 → movimiento puro por path (sin steering visible)
-        // steeringBlend = 1 → movimiento puro por steering (puede ignorar path)
-        // steeringBlend = 0.45 → equilibrio: path guía el macromovimiento,
-        //                         steering refina el micromovimiento.
-        // ------------------------------------------------------------------
-        if (navAgent.hasPath || navAgent.pathPending)
-        {
-            Vector3 navVelocity = navAgent.desiredVelocity.sqrMagnitude > 0.01f
-                ? navAgent.desiredVelocity
-                : steeringVelocity;
-
-            Vector3 blended = Vector3.Lerp(navVelocity, steeringVelocity, steeringBlend);
-            navAgent.velocity = Vector3.ClampMagnitude(blended, speed);
-        }
     }
 
-    /// <summary>Obtiene la velocidad actual del transform objetivo.</summary>
     Vector3 GetVelocityOf(Transform target)
     {
         if (target.TryGetComponent(out NavMeshAgent targetAgent))
@@ -299,27 +217,18 @@ public class SteeringAgent : MonoBehaviour
         return Vector3.zero;
     }
 
-    // ------------------------------------------------------------------
-    // Debug Gizmos
-    // ------------------------------------------------------------------
-
     void OnDrawGizmos()
     {
         if (!showGizmos || !Application.isPlaying || navAgent == null) return;
 
-        // Path A* computado por NavMesh
         if (navAgent.hasPath)
         {
             Gizmos.color = new Color(0.2f, 0.8f, 1f, 0.8f);
             Vector3[] corners = navAgent.path.corners;
             for (int i = 0; i < corners.Length - 1; i++)
                 Gizmos.DrawLine(corners[i], corners[i + 1]);
-
-            for (int i = 0; i < corners.Length; i++)
-                Gizmos.DrawWireSphere(corners[i], 0.15f);
         }
 
-        // Vector de steering actual
         if (debugSteeringVelocity.sqrMagnitude > 0.01f)
         {
             Gizmos.color = Color.green;
@@ -327,7 +236,6 @@ public class SteeringAgent : MonoBehaviour
                            debugSteeringVelocity.normalized * 2f);
         }
 
-        // Círculo de Wander
         if (currentBehavior == ActiveBehavior.Wander)
         {
             Gizmos.color = new Color(1f, 0.9f, 0f, 0.35f);
@@ -336,7 +244,6 @@ public class SteeringAgent : MonoBehaviour
                 wanderRadius);
         }
 
-        // Radio de Arrive
         if (currentBehavior == ActiveBehavior.Arrive)
         {
             Gizmos.color = new Color(0f, 1f, 0.4f, 0.25f);

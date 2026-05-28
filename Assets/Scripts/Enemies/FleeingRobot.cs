@@ -3,20 +3,11 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// FleeingRobot: enemigo a distancia con FSM de 3 estados.
-///
-/// INTEGRACIÓN PATHFINDING + STEERING:
-///   • Pathfinding: NavMesh (A*) — calcula la ruta óptima alrededor de obstáculos.
-///   • Steering:    Wander (patrulla) + Evade (huida) via SteeringAgent.
-///
-/// Flujo de decisión:
-///   FSM (Patrol/Attack/Flee)
-///     → SteeringAgent.WanderAround() / Stop() / EvadeTarget()
-///       → SteeringBehaviors calcula velocidad local
-///       → NavMesh.desiredVelocity (próximo waypoint del path A*)
-///       → Blending → NavMeshAgent.velocity
+/// FleeingRobot — FSM: Patrol | Attack | Flee
+/// Patrulla como el Robot. Si te ve, dispara hasta perderte de vista.
+/// Si te acercás demasiado, huye rápido (sin importar LoS).
 /// </summary>
-[RequireComponent(typeof(SteeringAgent))]
+[RequireComponent(typeof(NavMeshAgent))]
 public class FleeingRobot : MonoBehaviour
 {
     public enum FleeingState
@@ -31,6 +22,13 @@ public class FleeingRobot : MonoBehaviour
     [SerializeField] float visionRange = 20f;
     [SerializeField] float safeDistance = 8f;
     [SerializeField] float patrolRadius = 15f;
+    [SerializeField] float patrolWaitTime = 2f;
+
+    [Header("Flee Settings")]
+    [SerializeField] float fleeSpeed = 8f;
+    [SerializeField] float fleeAcceleration = 20f;
+    [SerializeField] float fleeAngularSpeed = 300f;
+    [SerializeField] float fleeDistance = 14f;
 
     [Header("Attack Settings")]
     [SerializeField] GameObject projectilePrefab;
@@ -40,7 +38,6 @@ public class FleeingRobot : MonoBehaviour
 
     [Header("Line of Sight")]
     [SerializeField] LayerMask visionLayers;
-    [SerializeField] float losCheckInterval = 0.15f;
 
     [Header("Visuals")]
     [SerializeField] Renderer glowingSphereRenderer;
@@ -50,54 +47,61 @@ public class FleeingRobot : MonoBehaviour
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
     FirstPersonController player;
-    SteeringAgent steeringAgent;
+    NavMeshAgent agent;
 
     float fireTimer = 0f;
-    float losTimer = 0f;
-    bool cachedCanSeePlayer = false;
-    float cachedDistanceToPlayer = float.MaxValue;
+    float patrolWaitTimer = 0f;
+    bool canSeePlayer = false;
 
-    FleeingState previousState = FleeingState.Patrol;
+    float normalSpeed;
+    float normalAcceleration;
+    float normalAngularSpeed;
 
     const string PLAYER_STRING = "Player";
 
     void Awake()
     {
-        steeringAgent = GetComponent<SteeringAgent>();
+        agent = GetComponent<NavMeshAgent>();
     }
 
     void Start()
     {
         player = FindFirstObjectByType<FirstPersonController>();
+        ResolveMissingReferences();
+        EnsureOnNavMesh();
 
-        // Inicia con Wander para que el movimiento de patrulla sea orgánico
-        steeringAgent.WanderAround();
+        normalSpeed = agent.speed;
+        normalAcceleration = agent.acceleration;
+        normalAngularSpeed = agent.angularSpeed;
 
-        if (glowingSphereRenderer != null)
-        {
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-            glowingSphereRenderer.GetPropertyBlock(block);
-            block.SetColor(EmissionColorID, glowColor);
-            block.SetColor(BaseColorID, glowColor);
-            glowingSphereRenderer.SetPropertyBlock(block);
-        }
+        agent.stoppingDistance = 0.5f;
+        agent.isStopped = false;
+
+        BeginPatrol();
+        ApplyVisuals();
     }
 
     void Update()
     {
         if (!player) return;
 
-        // Throttle del LoS check (no raycastear cada frame)
-        losTimer += Time.deltaTime;
-        if (losTimer >= losCheckInterval)
-        {
-            losTimer = 0f;
-            cachedDistanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
-            cachedCanSeePlayer = CheckLineOfSight();
-        }
+        if (!agent.isOnNavMesh)
+            EnsureOnNavMesh();
 
-        // Toma de Decisiones (FSM)
-        FleeingState newState = DetermineState();
+        float distanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
+
+        canSeePlayer = distanceToPlayer <= visionRange
+            && EnemyVision.CanSeePlayer(transform.position, player.transform.position, visionRange, visionLayers);
+
+        // Prioridad: Flee (cerca, sin LoS) > Attack (ve al jugador) > Patrol
+        FleeingState newState;
+        if (distanceToPlayer < safeDistance)
+            newState = FleeingState.Flee;
+        else if (canSeePlayer)
+            newState = FleeingState.Attack;
+        else
+            newState = FleeingState.Patrol;
+
         if (newState != currentState)
         {
             OnStateExit(currentState);
@@ -108,73 +112,108 @@ public class FleeingRobot : MonoBehaviour
         ExecuteState();
     }
 
-    // ------------------------------------------------------------------
-    // Transiciones de estado
-    // ------------------------------------------------------------------
-
-    FleeingState DetermineState()
-    {
-        if (cachedDistanceToPlayer < safeDistance && cachedCanSeePlayer)
-            return FleeingState.Flee;
-        if (cachedDistanceToPlayer <= visionRange && cachedCanSeePlayer)
-            return FleeingState.Attack;
-        return FleeingState.Patrol;
-    }
-
     void OnStateEnter(FleeingState state)
     {
         switch (state)
         {
             case FleeingState.Patrol:
-                // STEERING: Wander — movimiento aleatorio orgánico en patrulla
-                steeringAgent.WanderAround();
+                BeginPatrol();
                 break;
 
             case FleeingState.Attack:
-                // Se queda quieto para disparar
-                steeringAgent.Stop();
-                fireTimer = fireRate; // Dispara inmediatamente al detectar al jugador
+                agent.isStopped = true;
+                agent.ResetPath();
+                fireTimer = 0f;
                 break;
 
             case FleeingState.Flee:
-                // STEERING: Evade — predice hacia dónde va el jugador y escapa
-                steeringAgent.EvadeTarget(player.transform);
+                agent.isStopped = false;
+                agent.speed = fleeSpeed;
+                agent.acceleration = fleeAcceleration;
+                agent.angularSpeed = fleeAngularSpeed;
                 break;
         }
     }
 
     void OnStateExit(FleeingState state)
     {
-        // Limpieza al salir de un estado si es necesario
+        if (state == FleeingState.Flee)
+            RestoreNormalMovement();
     }
-
-    // ------------------------------------------------------------------
-    // Ejecución de estados
-    // ------------------------------------------------------------------
 
     void ExecuteState()
     {
         switch (currentState)
         {
             case FleeingState.Patrol:
-                // El Wander se maneja internamente por SteeringAgent
+                UpdatePatrolState();
                 break;
-
             case FleeingState.Attack:
                 UpdateAttackState();
                 break;
-
             case FleeingState.Flee:
-                // El Evade se actualiza continuamente — re-apunta cada frame
-                // para que la predicción de posición del jugador sea fresca
-                steeringAgent.EvadeTarget(player.transform);
+                UpdateFleeState();
                 break;
+        }
+    }
+
+    void BeginPatrol()
+    {
+        RestoreNormalMovement();
+        patrolWaitTimer = 0f;
+        agent.isStopped = false;
+        SetRandomPatrolDestination();
+    }
+
+    void RestoreNormalMovement()
+    {
+        agent.speed = normalSpeed;
+        agent.acceleration = normalAcceleration;
+        agent.angularSpeed = normalAngularSpeed;
+    }
+
+    void UpdatePatrolState()
+    {
+        if (agent.pathPending) return;
+
+        if (agent.remainingDistance <= agent.stoppingDistance + 0.25f)
+        {
+            patrolWaitTimer += Time.deltaTime;
+            if (patrolWaitTimer >= patrolWaitTime)
+            {
+                patrolWaitTimer = 0f;
+                SetRandomPatrolDestination();
+            }
+        }
+        else if (!agent.hasPath && !agent.pathPending)
+        {
+            SetRandomPatrolDestination();
+        }
+    }
+
+    void SetRandomPatrolDestination()
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
+            randomPoint.y = 0f;
+            randomPoint += transform.position;
+
+            if (NavMesh.SamplePosition(randomPoint, out NavMeshHit hit, patrolRadius, NavMesh.AllAreas))
+            {
+                if (Vector3.Distance(hit.position, transform.position) > 2f)
+                {
+                    agent.isStopped = false;
+                    agent.SetDestination(hit.position);
+                    return;
+                }
+            }
         }
     }
 
     void UpdateAttackState()
     {
-        // Rota para mirar al jugador (sin moverse)
+        // Dispara solo mientras tiene LoS; al perderlo la FSM pasa a Patrol
         Vector3 lookPos = player.transform.position;
         lookPos.y = transform.position.y;
         transform.LookAt(lookPos);
@@ -187,9 +226,25 @@ public class FleeingRobot : MonoBehaviour
         }
     }
 
-    // ------------------------------------------------------------------
-    // Disparo
-    // ------------------------------------------------------------------
+    void UpdateFleeState()
+    {
+        agent.isStopped = false;
+
+        Vector3 playerVelocity = Vector3.zero;
+        if (player.TryGetComponent(out CharacterController cc))
+            playerVelocity = cc.velocity;
+
+        Vector3 evadeVelocity = SteeringBehaviors.Evade(
+            transform.position,
+            player.transform.position,
+            playerVelocity,
+            fleeSpeed);
+
+        Vector3 fleeTarget = transform.position + evadeVelocity.normalized * fleeDistance;
+
+        if (NavMesh.SamplePosition(fleeTarget, out NavMeshHit hit, fleeDistance * 1.5f, NavMesh.AllAreas))
+            agent.SetDestination(hit.position);
+    }
 
     void ShootProjectile()
     {
@@ -206,33 +261,45 @@ public class FleeingRobot : MonoBehaviour
         newProjectile.SetColor(glowColor);
     }
 
-    // ------------------------------------------------------------------
-    // Line of Sight
-    // ------------------------------------------------------------------
-
-    bool CheckLineOfSight()
+    void EnsureOnNavMesh()
     {
-        if (player == null) return false;
-
-        Vector3 origin = transform.position + Vector3.up;
-        Vector3 direction = (player.transform.position + Vector3.up) - origin;
-
-        if (Physics.Raycast(origin, direction, out RaycastHit hit, visionRange, visionLayers))
-            return hit.collider.CompareTag(PLAYER_STRING);
-
-        return false;
+        if (agent.isOnNavMesh) return;
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 15f, NavMesh.AllAreas))
+            agent.Warp(hit.position);
     }
 
-    // ------------------------------------------------------------------
-    // Colisión
-    // ------------------------------------------------------------------
+    void ResolveMissingReferences()
+    {
+        if (projectileSpawnPoint == null)
+        {
+            foreach (Transform child in GetComponentsInChildren<Transform>(true))
+            {
+                if (child.name == "Projectile Spawn Fleeing Robot")
+                {
+                    projectileSpawnPoint = child;
+                    break;
+                }
+            }
+        }
+
+        if (glowingSphereRenderer == null)
+            glowingSphereRenderer = GetComponentInChildren<Renderer>();
+    }
+
+    void ApplyVisuals()
+    {
+        if (glowingSphereRenderer == null) return;
+
+        MaterialPropertyBlock block = new MaterialPropertyBlock();
+        glowingSphereRenderer.GetPropertyBlock(block);
+        block.SetColor(EmissionColorID, glowColor);
+        block.SetColor(BaseColorID, glowColor);
+        glowingSphereRenderer.SetPropertyBlock(block);
+    }
 
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag(PLAYER_STRING))
-        {
-            EnemyHealth enemyHealth = GetComponent<EnemyHealth>();
-            enemyHealth?.SelfDestruct();
-        }
+            GetComponent<EnemyHealth>()?.SelfDestruct();
     }
 }
