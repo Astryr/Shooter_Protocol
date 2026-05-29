@@ -173,36 +173,3 @@ Assets/Scripts/
 │   └── HealthPickup.cs
 └── Misc/
     └── GameManager.cs
-```
-
----
-
-## Cómo ejecutar el proyecto
-
-1. Clonar o abrir el repositorio en **Unity 6** (misma versión que `ProjectVersion.txt` si es posible).
-2. Abrir `Assets/Scenes/MainLevel.unity`.
-3. En **File → Build Settings**, confirmar que solo `MainLevel` está habilitada.
-4. Si se modificó la geometría del nivel: **Window → AI → Navigation** y volver a **Bake** el NavMesh.
-5. **Play** en `MainLevel`. Revisar la consola: no deberían quedar errores de scripts.
-6. Probar: movimiento, disparo, cambio de armas (`1`–`3`), pickups de vida, eliminación de enemigos, victoria y pausa (`ESC`).
-
----
-
-## Entregables académicos
-
-| Entregable | Ubicación |
-|---|---|
-| Proyecto Unity | Este repositorio |
-| Documentación de IA | Este `README.md` |
-| Repositorio Git público | Completar la URL al publicar el remoto |
-
-No subir al repositorio carpetas generadas por Unity (`Library/`, `Temp/`, `Logs/`, builds locales). El `.gitignore` del proyecto ya las excluye.
-
----
-
-## Notas para la defensa oral
-
-- **LoS:** explicar raycast y capas; torreta dispara desde el cañón; robots usan `EnemyVision` para cambiar de estado.
-- **FSM vs steering:** la FSM elige el modo (patrulla, huida, etc.); el steering define cómo se mueve dentro del modo; NavMesh resuelve la ruta alrededor de paredes.
-- **A\*:** no está reimplementado a mano; se delega al `NavMeshAgent` de Unity, que internamente usa búsqueda tipo A* sobre el grafo del NavMesh (válido para la consigna).
-- **Spawn Gate:** no suma al contador de enemigos como unidad propia; solo instancia robots que sí tienen `EnemyHealth`.
