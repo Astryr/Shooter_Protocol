@@ -4,8 +4,10 @@ using UnityEngine.AI;
 
 /// <summary>
 /// FleeingRobot — FSM: Patrol | Attack | Flee
-/// Patrulla como el Robot. Si te ve, dispara hasta perderte de vista.
-/// Si te acercás demasiado, huye rápido (sin importar LoS).
+/// Integración Entrega 2:
+///   Patrol → Steering Arrive + Pathfinding A* (NavMesh)
+///   Attack → quieto + disparo con LoS
+///   Flee   → Steering Flee + Pathfinding A* (NavMesh)
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class FleeingRobot : MonoBehaviour
@@ -20,15 +22,20 @@ public class FleeingRobot : MonoBehaviour
     [Header("State Machine")]
     [SerializeField] FleeingState currentState = FleeingState.Patrol;
     [SerializeField] float visionRange = 20f;
-    [SerializeField] float safeDistance = 8f;
     [SerializeField] float patrolRadius = 15f;
     [SerializeField] float patrolWaitTime = 2f;
 
+    [Header("Steering — Patrol")]
+    [SerializeField] float arrivalSlowingRadius = 3f;
+    [SerializeField] float patrolSteerDistance = 6f;
+
     [Header("Flee Settings")]
-    [SerializeField] float fleeSpeed = 8f;
-    [SerializeField] float fleeAcceleration = 20f;
-    [SerializeField] float fleeAngularSpeed = 300f;
-    [SerializeField] float fleeDistance = 14f;
+    [SerializeField] float fleeTriggerDistance = 10f;
+    [SerializeField] float resumeAttackDistance = 12f;
+    [SerializeField] float fleeSpeed = 12f;
+    [SerializeField] float fleeAcceleration = 40f;
+    [SerializeField] float fleeAngularSpeed = 720f;
+    [SerializeField] float fleeRunDistance = 18f;
 
     [Header("Attack Settings")]
     [SerializeField] GameObject projectilePrefab;
@@ -43,15 +50,22 @@ public class FleeingRobot : MonoBehaviour
     [SerializeField] Renderer glowingSphereRenderer;
     [SerializeField] [ColorUsage(true, true)] Color glowColor = Color.yellow;
 
+    [Header("Debug")]
+    [SerializeField] bool showPathGizmos = true;
+    [SerializeField] bool showSteeringGizmos = true;
+
     static readonly int EmissionColorID = Shader.PropertyToID("_EmissionColor");
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
 
     FirstPersonController player;
     NavMeshAgent agent;
 
+    Vector3 patrolWaypoint;
+    bool hasPatrolWaypoint = false;
     float fireTimer = 0f;
     float patrolWaitTimer = 0f;
     bool canSeePlayer = false;
+    Vector3 lastSteeringVelocity;
 
     float normalSpeed;
     float normalAcceleration;
@@ -68,7 +82,7 @@ public class FleeingRobot : MonoBehaviour
     {
         player = FindFirstObjectByType<FirstPersonController>();
         ResolveMissingReferences();
-        EnsureOnNavMesh();
+        EnemyMovement.EnsureOnNavMesh(agent);
 
         normalSpeed = agent.speed;
         normalAcceleration = agent.acceleration;
@@ -85,19 +99,17 @@ public class FleeingRobot : MonoBehaviour
     {
         if (!player) return;
 
-        if (!agent.isOnNavMesh)
-            EnsureOnNavMesh();
+        EnemyMovement.EnsureOnNavMesh(agent);
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
 
         canSeePlayer = distanceToPlayer <= visionRange
             && EnemyVision.CanSeePlayer(transform.position, player.transform.position, visionRange, visionLayers);
 
-        // Prioridad: Flee (cerca, sin LoS) > Attack (ve al jugador) > Patrol
         FleeingState newState;
-        if (distanceToPlayer < safeDistance)
+        if (distanceToPlayer < fleeTriggerDistance)
             newState = FleeingState.Flee;
-        else if (canSeePlayer)
+        else if (canSeePlayer && distanceToPlayer >= resumeAttackDistance)
             newState = FleeingState.Attack;
         else
             newState = FleeingState.Patrol;
@@ -119,18 +131,13 @@ public class FleeingRobot : MonoBehaviour
             case FleeingState.Patrol:
                 BeginPatrol();
                 break;
-
             case FleeingState.Attack:
                 agent.isStopped = true;
                 agent.ResetPath();
                 fireTimer = 0f;
                 break;
-
             case FleeingState.Flee:
-                agent.isStopped = false;
-                agent.speed = fleeSpeed;
-                agent.acceleration = fleeAcceleration;
-                agent.angularSpeed = fleeAngularSpeed;
+                EnterFleeState();
                 break;
         }
     }
@@ -162,7 +169,7 @@ public class FleeingRobot : MonoBehaviour
         RestoreNormalMovement();
         patrolWaitTimer = 0f;
         agent.isStopped = false;
-        SetRandomPatrolDestination();
+        PickNewPatrolWaypoint();
     }
 
     void RestoreNormalMovement()
@@ -174,6 +181,12 @@ public class FleeingRobot : MonoBehaviour
 
     void UpdatePatrolState()
     {
+        if (!hasPatrolWaypoint)
+        {
+            PickNewPatrolWaypoint();
+            return;
+        }
+
         if (agent.pathPending) return;
 
         if (agent.remainingDistance <= agent.stoppingDistance + 0.25f)
@@ -182,17 +195,21 @@ public class FleeingRobot : MonoBehaviour
             if (patrolWaitTimer >= patrolWaitTime)
             {
                 patrolWaitTimer = 0f;
-                SetRandomPatrolDestination();
+                PickNewPatrolWaypoint();
             }
+            return;
         }
-        else if (!agent.hasPath && !agent.pathPending)
-        {
-            SetRandomPatrolDestination();
-        }
+
+        lastSteeringVelocity = SteeringBehaviors.Arrive(
+            transform.position, patrolWaypoint, agent.speed, arrivalSlowingRadius);
+        EnemyMovement.NavigateWithArrive(
+            agent, patrolWaypoint, agent.speed, arrivalSlowingRadius, patrolSteerDistance);
     }
 
-    void SetRandomPatrolDestination()
+    void PickNewPatrolWaypoint()
     {
+        hasPatrolWaypoint = false;
+
         for (int attempt = 0; attempt < 8; attempt++)
         {
             Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
@@ -203,8 +220,10 @@ public class FleeingRobot : MonoBehaviour
             {
                 if (Vector3.Distance(hit.position, transform.position) > 2f)
                 {
-                    agent.isStopped = false;
-                    agent.SetDestination(hit.position);
+                    patrolWaypoint = hit.position;
+                    hasPatrolWaypoint = true;
+                    EnemyMovement.NavigateWithArrive(
+                        agent, patrolWaypoint, agent.speed, arrivalSlowingRadius, patrolSteerDistance);
                     return;
                 }
             }
@@ -213,7 +232,6 @@ public class FleeingRobot : MonoBehaviour
 
     void UpdateAttackState()
     {
-        // Dispara solo mientras tiene LoS; al perderlo la FSM pasa a Patrol
         Vector3 lookPos = player.transform.position;
         lookPos.y = transform.position.y;
         transform.LookAt(lookPos);
@@ -226,24 +244,34 @@ public class FleeingRobot : MonoBehaviour
         }
     }
 
+    void EnterFleeState()
+    {
+        agent.isStopped = false;
+        agent.speed = fleeSpeed;
+        agent.acceleration = fleeAcceleration;
+        agent.angularSpeed = fleeAngularSpeed;
+        agent.ResetPath();
+
+        Vector3 awayFromPlayer = transform.position - player.transform.position;
+        awayFromPlayer.y = 0f;
+        if (awayFromPlayer.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.LookRotation(awayFromPlayer.normalized);
+
+        ApplyFleeMovement();
+    }
+
     void UpdateFleeState()
     {
         agent.isStopped = false;
+        ApplyFleeMovement();
+    }
 
-        Vector3 playerVelocity = Vector3.zero;
-        if (player.TryGetComponent(out CharacterController cc))
-            playerVelocity = cc.velocity;
+    void ApplyFleeMovement()
+    {
+        lastSteeringVelocity = SteeringBehaviors.Flee(
+            transform.position, player.transform.position, fleeSpeed);
 
-        Vector3 evadeVelocity = SteeringBehaviors.Evade(
-            transform.position,
-            player.transform.position,
-            playerVelocity,
-            fleeSpeed);
-
-        Vector3 fleeTarget = transform.position + evadeVelocity.normalized * fleeDistance;
-
-        if (NavMesh.SamplePosition(fleeTarget, out NavMeshHit hit, fleeDistance * 1.5f, NavMesh.AllAreas))
-            agent.SetDestination(hit.position);
+        EnemyMovement.NavigateWithFlee(agent, player.transform.position, fleeSpeed, fleeRunDistance);
     }
 
     void ShootProjectile()
@@ -259,13 +287,6 @@ public class FleeingRobot : MonoBehaviour
         newProjectile.transform.LookAt(player.transform.position + Vector3.up);
         newProjectile.Init(damage);
         newProjectile.SetColor(glowColor);
-    }
-
-    void EnsureOnNavMesh()
-    {
-        if (agent.isOnNavMesh) return;
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 15f, NavMesh.AllAreas))
-            agent.Warp(hit.position);
     }
 
     void ResolveMissingReferences()
@@ -295,6 +316,23 @@ public class FleeingRobot : MonoBehaviour
         block.SetColor(EmissionColorID, glowColor);
         block.SetColor(BaseColorID, glowColor);
         glowingSphereRenderer.SetPropertyBlock(block);
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        if (!showPathGizmos) return;
+        if (agent == null) agent = GetComponent<NavMeshAgent>();
+        if (agent != null)
+            EnemyMovement.DrawNavMeshPath(agent, new Color(1f, 0.85f, 0.2f, 0.9f));
+
+        if (showSteeringGizmos)
+            EnemyMovement.DrawSteeringVector(transform.position, lastSteeringVelocity, Color.red);
+
+        if (hasPatrolWaypoint)
+        {
+            Gizmos.color = new Color(0f, 1f, 0.4f, 0.35f);
+            Gizmos.DrawWireSphere(patrolWaypoint, arrivalSlowingRadius);
+        }
     }
 
     void OnTriggerEnter(Collider other)

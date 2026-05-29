@@ -4,8 +4,9 @@ using UnityEngine.AI;
 
 /// <summary>
 /// Robot — FSM: Patrol | Chase
-/// Patrulla puntos aleatorios del NavMesh. Si detecta al jugador (rango + LoS), persigue.
-/// Si lo pierde de vista o sale del rango, vuelve a patrullar.
+/// Integración Entrega 2:
+///   Patrol → Steering Arrive + Pathfinding A* (NavMesh)
+///   Chase  → Steering Pursue + Pathfinding A* (NavMesh)
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class Robot : MonoBehaviour
@@ -22,14 +23,28 @@ public class Robot : MonoBehaviour
     [SerializeField] float patrolRadius = 10f;
     [SerializeField] float patrolWaitTime = 2f;
 
+    [Header("Steering — Patrol")]
+    [SerializeField] float arrivalSlowingRadius = 3f;
+    [SerializeField] float patrolSteerDistance = 6f;
+
+    [Header("Steering — Chase")]
+    [SerializeField] float pursueSteerDistance = 8f;
+
     [Header("Line of Sight")]
     [SerializeField] LayerMask visionLayers;
+
+    [Header("Debug")]
+    [SerializeField] bool showPathGizmos = true;
+    [SerializeField] bool showSteeringGizmos = true;
 
     FirstPersonController player;
     NavMeshAgent agent;
 
+    Vector3 patrolWaypoint;
+    bool hasPatrolWaypoint = false;
     float patrolWaitTimer = 0f;
     bool canSeePlayer = false;
+    Vector3 lastSteeringVelocity;
 
     const string PLAYER_STRING = "Player";
 
@@ -41,7 +56,7 @@ public class Robot : MonoBehaviour
     void Start()
     {
         player = FindFirstObjectByType<FirstPersonController>();
-        EnsureOnNavMesh();
+        EnemyMovement.EnsureOnNavMesh(agent);
 
         agent.stoppingDistance = 0.5f;
         agent.isStopped = false;
@@ -52,12 +67,9 @@ public class Robot : MonoBehaviour
     {
         if (!player) return;
 
-        if (!agent.isOnNavMesh)
-            EnsureOnNavMesh();
+        EnemyMovement.EnsureOnNavMesh(agent);
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
-
-        // LoS: solo puede "ver" si está en rango Y no hay obstáculo
         canSeePlayer = distanceToPlayer <= visionRange
             && EnemyVision.CanSeePlayer(transform.position, player.transform.position, visionRange, visionLayers);
 
@@ -77,6 +89,8 @@ public class Robot : MonoBehaviour
     {
         if (state == RobotState.Patrol)
             BeginPatrol();
+        else if (state == RobotState.Chase)
+            agent.isStopped = false;
     }
 
     void OnStateExit(RobotState state) { }
@@ -98,11 +112,17 @@ public class Robot : MonoBehaviour
     {
         patrolWaitTimer = 0f;
         agent.isStopped = false;
-        SetRandomPatrolDestination();
+        PickNewPatrolWaypoint();
     }
 
     void UpdatePatrolState()
     {
+        if (!hasPatrolWaypoint)
+        {
+            PickNewPatrolWaypoint();
+            return;
+        }
+
         if (agent.pathPending) return;
 
         if (agent.remainingDistance <= agent.stoppingDistance + 0.25f)
@@ -111,23 +131,34 @@ public class Robot : MonoBehaviour
             if (patrolWaitTimer >= patrolWaitTime)
             {
                 patrolWaitTimer = 0f;
-                SetRandomPatrolDestination();
+                PickNewPatrolWaypoint();
             }
+            return;
         }
-        else if (!agent.hasPath && !agent.pathPending)
-        {
-            SetRandomPatrolDestination();
-        }
+
+        // Steering Arrive → NavMesh A*
+        lastSteeringVelocity = SteeringBehaviors.Arrive(
+            transform.position, patrolWaypoint, agent.speed, arrivalSlowingRadius);
+        EnemyMovement.NavigateWithArrive(
+            agent, patrolWaypoint, agent.speed, arrivalSlowingRadius, patrolSteerDistance);
     }
 
     void UpdateChaseState()
     {
-        agent.isStopped = false;
-        agent.SetDestination(player.transform.position);
+        // Steering Pursue → NavMesh A* (intercepta al jugador)
+        lastSteeringVelocity = SteeringBehaviors.Pursue(
+            transform.position,
+            player.transform.position,
+            EnemyMovement.GetTargetVelocity(player.transform),
+            agent.speed);
+
+        EnemyMovement.NavigateWithPursue(agent, player.transform, agent.speed, pursueSteerDistance);
     }
 
-    void SetRandomPatrolDestination()
+    void PickNewPatrolWaypoint()
     {
+        hasPatrolWaypoint = false;
+
         for (int attempt = 0; attempt < 8; attempt++)
         {
             Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
@@ -138,19 +169,31 @@ public class Robot : MonoBehaviour
             {
                 if (Vector3.Distance(hit.position, transform.position) > 2f)
                 {
-                    agent.isStopped = false;
-                    agent.SetDestination(hit.position);
+                    patrolWaypoint = hit.position;
+                    hasPatrolWaypoint = true;
+                    EnemyMovement.NavigateWithArrive(
+                        agent, patrolWaypoint, agent.speed, arrivalSlowingRadius, patrolSteerDistance);
                     return;
                 }
             }
         }
     }
 
-    void EnsureOnNavMesh()
+    void OnDrawGizmosSelected()
     {
-        if (agent.isOnNavMesh) return;
-        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 15f, NavMesh.AllAreas))
-            agent.Warp(hit.position);
+        if (!showPathGizmos) return;
+        if (agent == null) agent = GetComponent<NavMeshAgent>();
+        if (agent != null)
+            EnemyMovement.DrawNavMeshPath(agent, new Color(0.2f, 0.85f, 1f, 0.9f));
+
+        if (showSteeringGizmos)
+            EnemyMovement.DrawSteeringVector(transform.position, lastSteeringVelocity, Color.green);
+
+        if (hasPatrolWaypoint)
+        {
+            Gizmos.color = new Color(0f, 1f, 0.4f, 0.35f);
+            Gizmos.DrawWireSphere(patrolWaypoint, arrivalSlowingRadius);
+        }
     }
 
     void OnTriggerEnter(Collider other)

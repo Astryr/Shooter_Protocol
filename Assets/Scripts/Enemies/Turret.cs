@@ -2,8 +2,10 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Torreta — dispara solo si tiene línea de visión directa al jugador (LoS).
-/// Obstáculos y paredes bloquean el disparo.
+/// Torreta — agente estático (Entrega 1 + 2).
+/// FSM implícita: Idle (apunta) → Fire (si LoS).
+/// No usa steering ni pathfinding: no se desplaza.
+/// Line of Sight obligatoria: paredes y obstáculos bloquean el disparo.
 /// </summary>
 public class Turret : MonoBehaviour
 {
@@ -34,7 +36,7 @@ public class Turret : MonoBehaviour
         {
             yield return new WaitForSeconds(fireRate);
 
-            if (CanSeePlayer())
+            if (HasLineOfSightToPlayer())
             {
                 Projectile newProjectile = Instantiate(
                     projectilePrefab,
@@ -48,7 +50,7 @@ public class Turret : MonoBehaviour
         }
     }
 
-    bool CanSeePlayer()
+    bool HasLineOfSightToPlayer()
     {
         if (player == null || playerTargetPoint == null || projectileSpawnPoint == null)
             return false;
@@ -60,7 +62,6 @@ public class Turret : MonoBehaviour
 
         if (distance < 0.01f) return true;
 
-        // LoS: el primer obstáculo en el camino debe ser el jugador
         if (Physics.Raycast(
             origin,
             direction.normalized,

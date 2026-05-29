@@ -196,17 +196,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FleeingRobot
   currentState: 0
   visionRange: 20
-  safeDistance: 8
   patrolRadius: 15
+  patrolWaitTime: 2
+  fleeTriggerDistance: 10
+  resumeAttackDistance: 12
+  fleeSpeed: 12
+  fleeAcceleration: 40
+  fleeAngularSpeed: 720
+  fleeRunDistance: 18
   projectilePrefab: {fileID: 669171646449847294, guid: cc653ef68de419f41bc6880012d3bef1, type: 3}
   projectileSpawnPoint: {fileID: 0}
   fireRate: 2
   damage: 1
-  patrolWaitTime: 2
-  fleeSpeed: 8
-  fleeAcceleration: 20
-  fleeAngularSpeed: 300
-  fleeDistance: 14
 --- !u!114 &1639720867456174954
 MonoBehaviour:
   m_ObjectHideFlags: 0
