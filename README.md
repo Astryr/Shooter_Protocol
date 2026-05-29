@@ -6,11 +6,11 @@ Shooter en primera persona para Unity 6 (URP). El jugador recorre un nivel sci-f
 
 | Campo | Valor |
 |---|---|
-| Motor | Unity 6 (`6000.3.11f1` — ver `ProjectSettings/ProjectVersion.txt`) |
-| Escena de entrega | `Assets/Scenes/MainLevel.unity` |
+| Motor | Unity 6 (`6000.3.11f1`) |
+| Escena Principal| `Assets/Scenes/MainLevel.unity` |
 | Render pipeline | Universal Render Pipeline |
-| Input | Input System Package (ver `Edit → Project Settings → Player`) |
-| Objetivo | Reducir **Enemies Left** a `0` eliminando todos los enemigos con `EnemyHealth` |
+| Input | Input System Package |
+| Objetivo | Eliminar a todos los enemigos y mantenerte con vida hasta el final |
 
 ## Controles
 
