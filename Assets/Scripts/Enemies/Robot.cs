@@ -20,15 +20,29 @@ public class Robot : MonoBehaviour
     [Header("State Machine")]
     [SerializeField] RobotState currentState = RobotState.Patrol;
     [SerializeField] float visionRange = 15f;
-    [SerializeField] float patrolRadius = 10f;
-    [SerializeField] float patrolWaitTime = 2f;
+
+    [Header("Patrol Auto-Config")]
+    [Tooltip("Aplica al iniciar el perfil de patrulla rápida para mapa grande (ignora valores viejos del prefab/escena).")]
+    [SerializeField] bool applyLargeMapPatrolProfile = true;
+
+    [Header("Patrol")]
+    [SerializeField] float patrolSpeed = 5.5f;
+    [SerializeField] float patrolRadius = 24f;
+    [SerializeField] float patrolWaitTime = 0.75f;
+    [SerializeField] float minPatrolLegDistance = 6f;
+    [SerializeField] float patrolAcceleration = 12f;
+    [SerializeField] float patrolAngularSpeed = 180f;
+
+    [Header("Chase")]
+    [SerializeField] float chaseSpeed = 5f;
+    [SerializeField] float chaseAcceleration = 10f;
 
     [Header("Steering — Patrol")]
     [SerializeField] float arrivalSlowingRadius = 3f;
-    [SerializeField] float patrolSteerDistance = 6f;
+    [SerializeField] float patrolSteerDistance = 12f;
 
     [Header("Steering — Chase")]
-    [SerializeField] float pursueSteerDistance = 8f;
+    [SerializeField] float pursueSteerDistance = 10f;
 
     [Header("Line of Sight")]
     [SerializeField] LayerMask visionLayers;
@@ -51,6 +65,9 @@ public class Robot : MonoBehaviour
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
+
+        if (applyLargeMapPatrolProfile)
+            ApplyLargeMapPatrolProfile();
     }
 
     void Start()
@@ -61,6 +78,32 @@ public class Robot : MonoBehaviour
         agent.stoppingDistance = 0.5f;
         agent.isStopped = false;
         BeginPatrol();
+    }
+
+    /// <summary>
+    /// Perfil único para mapa grande: se aplica en runtime a todos los robots
+    /// (colocados a mano o spawneados por Spawn Gate) sin tocar el Inspector.
+    /// </summary>
+    void ApplyLargeMapPatrolProfile()
+    {
+        patrolSpeed = 5.5f;
+        patrolRadius = 24f;
+        patrolWaitTime = 0.75f;
+        minPatrolLegDistance = 6f;
+        patrolAcceleration = 12f;
+        patrolAngularSpeed = 180f;
+        chaseSpeed = 5f;
+        chaseAcceleration = 10f;
+        arrivalSlowingRadius = 3f;
+        patrolSteerDistance = 12f;
+        pursueSteerDistance = 10f;
+
+        if (agent != null)
+        {
+            agent.acceleration = patrolAcceleration;
+            agent.angularSpeed = patrolAngularSpeed;
+            agent.stoppingDistance = 0.5f;
+        }
     }
 
     void Update()
@@ -90,7 +133,11 @@ public class Robot : MonoBehaviour
         if (state == RobotState.Patrol)
             BeginPatrol();
         else if (state == RobotState.Chase)
+        {
             agent.isStopped = false;
+            agent.speed = chaseSpeed;
+            agent.acceleration = chaseAcceleration;
+        }
     }
 
     void OnStateExit(RobotState state) { }
@@ -112,6 +159,9 @@ public class Robot : MonoBehaviour
     {
         patrolWaitTimer = 0f;
         agent.isStopped = false;
+        agent.speed = patrolSpeed;
+        agent.acceleration = patrolAcceleration;
+        agent.angularSpeed = patrolAngularSpeed;
         PickNewPatrolWaypoint();
     }
 
@@ -159,7 +209,7 @@ public class Robot : MonoBehaviour
     {
         hasPatrolWaypoint = false;
 
-        for (int attempt = 0; attempt < 8; attempt++)
+        for (int attempt = 0; attempt < 12; attempt++)
         {
             Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
             randomPoint.y = 0f;
@@ -167,7 +217,7 @@ public class Robot : MonoBehaviour
 
             if (NavMesh.SamplePosition(randomPoint, out NavMeshHit hit, patrolRadius, NavMesh.AllAreas))
             {
-                if (Vector3.Distance(hit.position, transform.position) > 2f)
+                if (Vector3.Distance(hit.position, transform.position) > minPatrolLegDistance)
                 {
                     patrolWaypoint = hit.position;
                     hasPatrolWaypoint = true;
@@ -194,6 +244,9 @@ public class Robot : MonoBehaviour
             Gizmos.color = new Color(0f, 1f, 0.4f, 0.35f);
             Gizmos.DrawWireSphere(patrolWaypoint, arrivalSlowingRadius);
         }
+
+        Gizmos.color = new Color(0.2f, 0.85f, 1f, 0.2f);
+        Gizmos.DrawWireSphere(transform.position, patrolRadius);
     }
 
     void OnTriggerEnter(Collider other)

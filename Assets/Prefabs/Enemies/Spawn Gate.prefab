@@ -117,6 +117,7 @@ MonoBehaviour:
   robotPrefab: {fileID: 6411705502155127295, guid: 72b8783c2cfca964ca1b0d0028dec123, type: 3}
   spawnTime: 5
   spawnPoint: {fileID: 907195111286754929}
+  maxSpawns: 3
 --- !u!1 &8303418254979462073
 GameObject:
   m_ObjectHideFlags: 0

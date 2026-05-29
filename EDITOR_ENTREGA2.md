@@ -178,7 +178,55 @@ Después de agrandar:
 
 ---
 
-## 8. Checklist final antes de entregar
+## 8. Cómo agregar más Robots normales (patrulla + persecución)
+
+En **MainLevel** casi no hay Robots colocados a mano: los normales salen de los **Spawn Gates**. Tenés **3 formas** de sumar más.
+
+### Método A — Colocar Robots fijos en el mapa (recomendado para zonas nuevas)
+
+1. En el **Project**, abrí: `Assets/Prefabs/Enemies/Robot.prefab`.
+2. **Arrastrá** el prefab `Robot` a la **Hierarchy** o directamente a la **Scene view**.
+3. Con la herramienta **Move (W)**, posicioná el robot sobre el suelo con **NavMesh azul** (zona caminable).
+4. Repetí para cada robot que quieras (ej. 3–5 en distintas salas).
+5. Renombrá en Hierarchy: `Robot`, `Robot (1)`, etc.
+6. **Play**: debe patrullar y perseguirte si te ve.
+
+**Importante:** Si queda quieto, movélo a una zona con NavMesh bakeado (capa azul).
+
+### Método B — Usar Spawn Gates (los que ya agregaste)
+
+Cada **Spawn Gate** genera robots automáticamente al iniciar el juego.
+
+1. Seleccioná un **Spawn Gate** en la Hierarchy.
+2. En el Inspector, componente **Spawn Gate**:
+   - **Robot Prefab** → debe ser `Robot` (no FleeingRobot). Si dice `None`, arrastrá `Assets/Prefabs/Enemies/Robot.prefab`.
+   - **Max Spawns** → cantidad total por puerta (ej. `3` o `5`).
+   - **Spawn Time** → segundos entre cada spawn (ej. `5`).
+   - **Spawn Point** → hijo `Spawn Point` del gate (punto donde aparece).
+3. El **Spawn Point** debe estar sobre NavMesh azul.
+4. Duplicá gates con **Ctrl+D** si querés más puntos de aparición.
+
+**Tip:** Si tus gates nuevos spawnean poco, revisá **Max Spawns**: muchos en la escena están en `1`.
+
+### Método C — Duplicar un Robot que ya funcione
+
+1. En Hierarchy, buscá cualquier objeto **Robot** (o jugá Main.unity que tiene 3 de ejemplo).
+2. Seleccionarlo → **Ctrl+D** → mové la copia a tu zona nueva en MainLevel.
+3. Guardá escena (**Ctrl+S**).
+
+### Resumen rápido
+
+| Querés… | Hacé… |
+|---|---|
+| Robots siempre en el mismo lugar | Método A (arrastrar prefab) |
+| Robots que aparecen con el tiempo | Método B (Spawn Gate + subir Max Spawns) |
+| Copiar uno que ya anda | Método C |
+
+El prefab correcto es siempre: **`Assets/Prefabs/Enemies/Robot.prefab`** (no confundir con `FleeingRobot.prefab`).
+
+---
+
+## 9. Checklist final antes de entregar
 
 - [ ] MainLevel en Build Settings
 - [ ] NavMesh bakeado tras agrandar el mapa
