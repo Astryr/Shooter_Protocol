@@ -1,105 +1,185 @@
 # Shooter Protocol
 
-## Género del Juego
-Shooter de Acción Rápida - FPS
+FPS de acción — proyecto Unity 6 (URP). Nivel principal: **MainLevel**.
 
-## Objetivo del Juego
-Sobrevivir y destruir a todos los enemigos en el nivel. El nivel se completa únicamente al eliminar a TODOS los enemigos (el contador de enemigos de la pantalla debe llegar a cero).
+## Objetivo
 
----
+Eliminar a todos los enemigos del nivel. El contador **Enemies Left** debe llegar a **0** para ganar.
 
-## Entrega 1 — IA básica
+## Controles
 
-### Line of Sight (LoS)
-Raycast desde cada enemigo. Paredes y obstáculos bloquean la visión. Implementado en `EnemyVision.cs` y en `Turret.cs`.
-
-### Toma de decisiones (FSM)
-Máquina de estados finitos en cada agente móvil.
-
-### Agentes (3 tipos)
-
-| Agente | Script | Estados FSM | Comportamientos |
-|---|---|---|---|
-| **Torreta** | `Turret.cs` | Apunta / Dispara | Estática, solo dispara con LoS |
-| **Robot** | `Robot.cs` | Patrol, Chase | Patrulla, persigue si te ve, vuelve a patrullar si pierde LoS |
-| **Fleeing Robot** | `FleeingRobot.cs` | Patrol, Attack, Flee | Patrulla, dispara con LoS, huye si te acercás |
-
-### Spawn Gates
-Generan robots adicionales en puntos del mapa (`SpawnGate.cs`).
-
-### Controles
-- **Movimiento:** `W` `A` `S` `D`
-- **Mirar:** Mouse
-- **Disparar:** Clic izquierdo
-- **Zoom:** Clic derecho (armas compatibles)
-- **Saltar:** Espacio
-
----
-
-## Entrega 2 — Steering + Pathfinding
-
-### Pathfinding (A*)
-Unity **NavMesh** con algoritmo **A\*** interno. Los agentes llaman `NavMeshAgent.SetDestination()` y el sistema calcula la ruta alrededor de obstáculos.
-
-Archivos: `EnemyMovement.cs`, `NavMeshAgent` en cada robot.
-
-### Steering Behaviors (≥ 3)
-
-Biblioteca: `Assets/Scripts/AI/SteeringBehaviors.cs`
-
-| Behavior | Usado por | Estado FSM |
-|---|---|---|
-| **Arrive** | Robot, FleeingRobot | Patrol |
-| **Pursue** | Robot | Chase |
-| **Flee** | FleeingRobot | Flee |
-| Seek, Wander, Evade | Disponibles en biblioteca / `EnemyMovement` | — |
-
-### Integración (FSM → Steering → A*)
-
-```
-FSM elige estado (Patrol / Chase / Flee / Attack)
-    ↓
-SteeringBehaviors calcula velocidad deseada (micromovimiento)
-    ↓
-EnemyMovement proyecta destino y valida con NavMesh.SamplePosition
-    ↓
-NavMeshAgent.SetDestination → ruta A* (visible en Gizmos al seleccionar enemigo)
-```
-
-### Mapa con obstáculos
-`MainLevel` usa NavMesh bakeado. Las rutas rodean paredes y geometría.
-
-### Diversidad de agentes
-- **Torreta:** reacción solo por LoS, sin movimiento.
-- **Robot:** patrulla + persecución melee.
-- **Fleeing Robot:** patrulla + combate a distancia + huida por proximidad.
-- **Spawn Gate:** refuerzos dinámicos.
-
-### Guía del editor
-Instrucciones para agrandar el nivel, rebakear NavMesh y configurar enemigos: **[EDITOR_ENTREGA2.md](EDITOR_ENTREGA2.md)**
-
----
-
-## Estructura de scripts de IA
-
-```
-Assets/Scripts/AI/
-  SteeringBehaviors.cs   — Seek, Flee, Arrive, Wander, Pursue, Evade
-  EnemyMovement.cs       — Integración steering + NavMesh A*
-  EnemyVision.cs         — Line of Sight compartido
-
-Assets/Scripts/Enemies/
-  Robot.cs
-  FleeingRobot.cs
-  Turret.cs
-  SpawnGate.cs
-```
-
----
-
-## Escenas
-
-| Escena | Uso |
+| Acción | Tecla |
 |---|---|
-| **MainLevel.unity** | Nivel principal (usar para entrega y demo) |
-| Main.unity | Escena alternativa / pruebas |
+| Movimiento | `W` `A` `S` `D` |
+| Mirar | Mouse |
+| Disparar | Clic izquierdo |
+| Zoom | Clic derecho |
+| Saltar | Espacio |
+
+---
+
+# Arquitectura de IA del proyecto
+
+## Visión general
+
+Cada agente hostil usa una **FSM** (máquina de estados finitos) para decidir qué hacer. La **percepción** usa **Line of Sight** (raycast). El **movimiento** combina:
+
+1. **Steering Behaviors** — dirección y velocidad deseada (micromovimiento).
+2. **Pathfinding A\*** — Unity NavMesh calcula la ruta válida alrededor de obstáculos.
+3. **NavMeshAgent** — ejecuta la ruta en el mapa.
+
+```
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────────┐     ┌──────────────┐
+│  FSM        │ ──► │ SteeringBehaviors │ ──► │ EnemyMovement       │ ──► │ NavMesh A*   │
+│  (decisión) │     │ (Arrive/Pursue/   │     │ (proyecta destino)  │     │ SetDestination│
+│             │     │  Flee, etc.)      │     │                     │     │              │
+└─────────────┘     └──────────────────┘     └─────────────────────┘     └──────────────┘
+```
+
+Archivos centrales:
+
+| Archivo | Rol |
+|---|---|
+| `Assets/Scripts/AI/SteeringBehaviors.cs` | Biblioteca: Seek, Flee, Arrive, Wander, Pursue, Evade |
+| `Assets/Scripts/AI/EnemyMovement.cs` | Integración steering → destino NavMesh |
+| `Assets/Scripts/AI/EnemyVision.cs` | Line of Sight compartido (raycast) |
+| `Assets/Scripts/AI/SteeringAgent.cs` | Componente legado/auxiliar (no requerido en prefabs actuales) |
+
+---
+
+## Por tipo de agente
+
+### 1. Torreta (`Turret.cs`)
+
+| Aspecto | Detalle |
+|---|---|
+| **Movimiento** | Ninguno (agente estático) |
+| **Pathfinding** | No aplica |
+| **Steering** | No aplica |
+| **FSM** | Apuntar al jugador → disparar si hay LoS |
+| **LoS** | Raycast desde el cañón; paredes bloquean |
+| **Comportamientos** | Rastrear (LookAt), disparar, esperar entre disparos |
+
+### 2. Robot (`Robot.cs`)
+
+| Aspecto | Detalle |
+|---|---|
+| **FSM** | `Patrol` \| `Chase` |
+| **Steering en Patrol** | **Arrive** (desacelera al llegar al waypoint) |
+| **Steering en Chase** | **Pursue** (predice posición del jugador) |
+| **Pathfinding** | NavMesh **A\*** hacia waypoint o jugador |
+| **LoS** | `EnemyVision` — entra en Chase solo con visión |
+| **Comportamientos** | Patrullar, esperar en punto, perseguir, volver a patrullar al perder LoS |
+| **Spawn** | Colocado en escena o generado por **Spawn Gate** |
+| **Auto-config** | `ApplyLargeMapPatrolProfile` en Awake (mapa grande) |
+
+### 3. Fleeing Robot (`FleeingRobot.cs`)
+
+| Aspecto | Detalle |
+|---|---|
+| **FSM** | `Patrol` \| `Attack` \| `Flee` |
+| **Steering en Patrol** | **Arrive** |
+| **Steering en Flee** | **Flee** (huida rápida, sin depender de LoS) |
+| **Pathfinding** | NavMesh **A\*** |
+| **LoS** | Solo para disparar (Attack); Flee por proximidad |
+| **Comportamientos** | Patrullar, disparar mientras te ve, huir si te acercás |
+
+### 4. Spawn Gate (`SpawnGate.cs`)
+
+| Aspecto | Detalle |
+|---|---|
+| **Rol** | Diversidad en el mapa — genera **Robots** en el tiempo |
+| **Prefab** | `Robot.prefab` |
+| **Parámetros** | `maxSpawns`, `spawnTime`, `spawnPoint` |
+
+---
+
+## Steering Behaviors implementados
+
+| Behavior | En código | Usado en juego por |
+|---|---|---|
+| Seek | Sí | Disponible vía `EnemyMovement` |
+| Flee | Sí | FleeingRobot (Flee) |
+| Arrive | Sí | Robot y FleeingRobot (Patrol) |
+| Wander | Sí | Disponible vía `EnemyMovement` |
+| Pursue | Sí | Robot (Chase) |
+| Evade | Sí | Disponible vía `EnemyMovement` |
+
+**Mínimo Entrega 2 (≥3 en uso):** Arrive, Pursue, Flee.
+
+---
+
+## Pathfinding
+
+- **Algoritmo:** **A\*** (Unity `NavMeshAgent`, paquete AI Navigation).
+- **Mapa:** `MainLevel` con NavMesh bakeado; rutas rodean obstáculos.
+- **Visualización:** seleccionar un Robot o FleeingRobot en Play → Gizmos de ruta (cyan/naranja) y steering (verde/rojo).
+
+---
+
+# Cumplimiento Entrega 1 y 2
+
+| Requisito | Estado |
+|---|---|
+| Escena jugable + jugador | OK — `MainLevel` en Build Settings |
+| ≥3 agentes con IA | OK — Torreta, Robot, FleeingRobot (+ Spawn Gate) |
+| Line of Sight | OK — `EnemyVision`, `Turret` |
+| FSM | OK — cada enemigo móvil |
+| ≥3 comportamientos por agente | OK — ver tablas arriba |
+| Estética coherente | OK — assets GDTV / tema sci-fi |
+| ≥3 Steering Behaviors | OK — Arrive, Pursue, Flee (+ biblioteca completa) |
+| Pathfinding A* | OK — NavMesh |
+| Integración FSM + steering + path | OK — `EnemyMovement` |
+| Mapa con obstáculos / NavMesh | OK — requiere **Bake** tras editar geometría |
+| Agentes distintos entre sí | OK — estático / melee / ranged+flee |
+| README con arquitectura IA | OK — este documento |
+
+---
+
+# Entregables
+
+## 1. Link de Git
+
+Subir el proyecto completo a GitHub/GitLab y entregar la URL del repositorio.
+
+**No subir:** carpetas `Library/`, `Temp/`, `Logs/`, `obj/`, builds locales (ya están en `.gitignore`).
+
+## 2. Documento / README
+
+Este archivo cumple el documento de arquitectura de IA. Complemento de editor: **[EDITOR_ENTREGA2.md](EDITOR_ENTREGA2.md)**.
+
+## 3. Build de entrega
+
+- Escena de entrega: **Assets/Scenes/MainLevel.unity**
+- Verificar en **File → Build Settings** que MainLevel esté habilitada.
+
+---
+
+# Estructura de scripts
+
+```
+Assets/Scripts/
+├── AI/
+│   ├── SteeringBehaviors.cs
+│   ├── EnemyMovement.cs
+│   ├── EnemyVision.cs
+│   └── SteeringAgent.cs
+├── Enemies/
+│   ├── Robot.cs
+│   ├── FleeingRobot.cs
+│   ├── Turret.cs
+│   ├── SpawnGate.cs
+│   ├── EnemyHealth.cs
+│   ├── Projectile.cs
+│   └── Explosion.cs
+├── Player/
+├── Pickups/
+└── Misc/
+    └── GameManager.cs
+```
+
+---
+
+# Guías
+
+- **Editor (agregar enemigos, agrandar mapa, NavMesh):** [EDITOR_ENTREGA2.md](EDITOR_ENTREGA2.md)
