@@ -167,18 +167,18 @@ public class ActiveWeapon : MonoBehaviour
     bool WasWeaponSwitchPressed(int index)
     {
 #if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current != null)
-        {
-            Key digitKey = IndexToDigitKey(index);
-            Key keypadKey = IndexToNumpadKey(index);
-            if (digitKey != Key.None
-                && (Keyboard.current[digitKey].wasPressedThisFrame
-                    || (keypadKey != Key.None && Keyboard.current[keypadKey].wasPressedThisFrame)))
-                return true;
-        }
-#endif
+        if (Keyboard.current == null)
+            return false;
+
+        Key digitKey = IndexToDigitKey(index);
+        Key keypadKey = IndexToNumpadKey(index);
+        return digitKey != Key.None
+            && (Keyboard.current[digitKey].wasPressedThisFrame
+                || (keypadKey != Key.None && Keyboard.current[keypadKey].wasPressedThisFrame));
+#else
         return Input.GetKeyDown(KeyCode.Alpha1 + index)
             || Input.GetKeyDown(KeyCode.Keypad1 + index);
+#endif
     }
 
 #if ENABLE_INPUT_SYSTEM
