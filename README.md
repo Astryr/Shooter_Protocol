@@ -30,7 +30,7 @@ Shooter en primera persona para Unity 6 (URP). El jugador recorre un nivel sci-f
 
 - El jugador inicia con las tres armas (teclas `1`–`3`). Cada arma tiene cargador de tamaño fijo; al vaciarlo aparece `RLD` y tras un breve tiempo se recarga solo.
 - No hay pickups de munición en el nivel.
-- Las cajas del mapa restauran vida (`HealthPickup`, +2 HP por defecto). El prefab sigue en `Assets/Prefabs/Pickups/Ammo Pickup.prefab` por legado del proyecto, pero el componente activo es de vida.
+- Las cajas del mapa restauran vida (`HealthPickup`, +2 HP por defecto). Prefab: `Assets/Prefabs/Pickups/Health Pickup.prefab`.
 
 ### Victoria y pausa
 
