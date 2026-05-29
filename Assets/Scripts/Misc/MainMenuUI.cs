@@ -7,8 +7,11 @@ using UnityEngine.UI;
 /// </summary>
 public class MainMenuUI : MonoBehaviour
 {
+    const string MenuCanvasName = "Main Menu Canvas";
+
     GameObject howToPlayPanel;
     GameObject creditsPanel;
+    bool menuBuilt;
 
     void Awake()
     {
@@ -19,12 +22,29 @@ public class MainMenuUI : MonoBehaviour
         }
 
         Time.timeScale = 1f;
+        TryBuildMenu();
+    }
+
+    void Start()
+    {
+        TryBuildMenu();
+    }
+
+    void TryBuildMenu()
+    {
+        if (menuBuilt || GameObject.Find(MenuCanvasName) != null)
+        {
+            menuBuilt = true;
+            return;
+        }
+
         BuildMenu();
+        menuBuilt = true;
     }
 
     void BuildMenu()
     {
-        Canvas canvas = GameplayUIBuilder.CreateScreenCanvas("Main Menu Canvas", 10);
+        Canvas canvas = GameplayUIBuilder.CreateScreenCanvas(MenuCanvasName, 10);
         Transform root = canvas.transform;
 
         GameplayUIBuilder.CreatePanel(root, "Background", new Color(0.04f, 0.06f, 0.1f, 1f));

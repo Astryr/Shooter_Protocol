@@ -167,7 +167,7 @@ Assets/Scripts/
 
 1. Abrir el repositorio en **Unity 6** (versión indicada en `ProjectSettings/ProjectVersion.txt`).
 2. Abrir la escena `Assets/Scenes/MainLevel.unity`.
-3. Confirmar en **File → Build Settings** que `MainMenu` (índice 0) y `MainLevel` (índice 1) están habilitadas.
+3. Confirmar en **File → Build Settings** que `MainMenu` (índice 0) y `MainLevel` (índice 1) están habilitadas. Al dar **Play**, el juego debe abrir el menú (Start / How To Play / Credits / Quit); **ESC** solo pausa durante la partida.
 4. Si se modificó la geometría del nivel, ejecutar **Bake** del NavMesh (Window → AI → Navigation).
 5. Entrar en Play Mode y verificar que no haya errores en la consola.
 

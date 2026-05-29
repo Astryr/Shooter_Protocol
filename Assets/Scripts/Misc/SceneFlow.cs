@@ -15,21 +15,42 @@ public static class SceneFlow
 {
     static bool subscribed;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetSessionOnPlay()
+    {
+        GameSession.EnteredLevelFromMenu = false;
+    }
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Initialize()
     {
-        if (subscribed) return;
-        subscribed = true;
-        SceneManager.sceneLoaded += OnSceneLoaded;
+        if (!subscribed)
+        {
+            subscribed = true;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
         OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name == SceneNavigation.MainMenuSceneName)
+        if (IsMainMenuScene(scene))
+        {
             SetupMainMenuScene();
-        else if (scene.name == SceneNavigation.MainLevelSceneName && !GameSession.EnteredLevelFromMenu)
+            return;
+        }
+
+        if (scene.name == SceneNavigation.MainLevelSceneName && !GameSession.EnteredLevelFromMenu)
             SceneNavigation.LoadMainMenu();
+    }
+
+    static bool IsMainMenuScene(Scene scene)
+    {
+        if (scene.name == SceneNavigation.MainMenuSceneName)
+            return true;
+
+        return scene.buildIndex == SceneNavigation.MainMenuBuildIndex && scene.buildIndex >= 0;
     }
 
     static void SetupMainMenuScene()
