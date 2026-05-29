@@ -20,6 +20,7 @@ public class Turret : MonoBehaviour
 
     void Start()
     {
+        EnemyGlowVisual.Apply(transform, EnemyGlowVisual.TealGlow);
         player = FindFirstObjectByType<PlayerHealth>();
         StartCoroutine(FireRoutine());
     }

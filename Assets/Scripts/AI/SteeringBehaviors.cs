@@ -10,7 +10,7 @@ using UnityEngine;
 ///     generando fuerzas de movimiento orgánicas y reactivas.
 ///
 /// Cada método recibe el estado actual del agente y retorna una velocidad
-/// deseada (Vector3). El SteeringAgent combina este resultado con la
+/// deseada (Vector3). EnemyMovement combina este resultado con la
 /// dirección del path calculado por NavMesh.
 ///
 /// Behaviors implementados:

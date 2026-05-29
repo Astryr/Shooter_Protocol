@@ -40,7 +40,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7840280610052371436}
-  - component: {fileID: 7679935350508109150}
   - component: {fileID: 9186753866402457959}
   - component: {fileID: 280222437074385725}
   m_Layer: 0
@@ -67,20 +66,6 @@ Transform:
   - {fileID: 907195111286754929}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
---- !u!114 &7679935350508109150
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7258239665449356205}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ee62a4f082aeb584db82c0a0a7ecdb03, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  robotExplosionVFX: {fileID: 2904693464289756635, guid: 4004ad4853243c3418d391fe3ecbb605, type: 3}
-  startingHealth: 3
 --- !u!65 &9186753866402457959
 BoxCollider:
   m_ObjectHideFlags: 0

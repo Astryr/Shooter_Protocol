@@ -222,7 +222,8 @@ public class ChargerRobot : MonoBehaviour
             wanderRadius,
             wanderDistance,
             wanderJitter,
-            agent.speed);
+            agent.speed,
+            wanderSteerDistance);
     }
 
     void UpdateChargeSeek()

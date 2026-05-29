@@ -113,7 +113,8 @@ public class ActiveWeapon : MonoBehaviour
 
     void EnsureInventory()
     {
-        if (inventoryWeapons != null && inventoryWeapons.Length >= 3) return;
+        if (inventoryWeapons != null && inventoryWeapons.Length >= 3)
+            return;
 
         WeaponSO pistol = null;
         WeaponSO machineGun = null;
@@ -153,22 +154,68 @@ public class ActiveWeapon : MonoBehaviour
 
     void HandleWeaponSwitch()
     {
-#if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current == null) return;
+        if (inventoryWeapons == null || inventoryWeapons.Length == 0)
+            return;
 
         for (int i = 0; i < inventoryWeapons.Length && i < 9; i++)
         {
-            Key digitKey = Key.Digit1 + i;
-            Key keypadKey = Key.Numpad1 + i;
-
-            if (Keyboard.current[digitKey].wasPressedThisFrame
-                || Keyboard.current[keypadKey].wasPressedThisFrame)
-            {
+            if (WasWeaponSwitchPressed(i))
                 EquipWeaponIndex(i);
-            }
+        }
+    }
+
+    bool WasWeaponSwitchPressed(int index)
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null)
+        {
+            Key digitKey = IndexToDigitKey(index);
+            Key keypadKey = IndexToNumpadKey(index);
+            if (digitKey != Key.None
+                && (Keyboard.current[digitKey].wasPressedThisFrame
+                    || (keypadKey != Key.None && Keyboard.current[keypadKey].wasPressedThisFrame)))
+                return true;
         }
 #endif
+        return Input.GetKeyDown(KeyCode.Alpha1 + index)
+            || Input.GetKeyDown(KeyCode.Keypad1 + index);
     }
+
+#if ENABLE_INPUT_SYSTEM
+    static Key IndexToDigitKey(int index)
+    {
+        return index switch
+        {
+            0 => Key.Digit1,
+            1 => Key.Digit2,
+            2 => Key.Digit3,
+            3 => Key.Digit4,
+            4 => Key.Digit5,
+            5 => Key.Digit6,
+            6 => Key.Digit7,
+            7 => Key.Digit8,
+            8 => Key.Digit9,
+            _ => Key.None
+        };
+    }
+
+    static Key IndexToNumpadKey(int index)
+    {
+        return index switch
+        {
+            0 => Key.Numpad1,
+            1 => Key.Numpad2,
+            2 => Key.Numpad3,
+            3 => Key.Numpad4,
+            4 => Key.Numpad5,
+            5 => Key.Numpad6,
+            6 => Key.Numpad7,
+            7 => Key.Numpad8,
+            8 => Key.Numpad9,
+            _ => Key.None
+        };
+    }
+#endif
 
     public void EquipWeaponIndex(int index)
     {

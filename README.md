@@ -87,7 +87,6 @@ FSM (decisión) → SteeringBehaviors (micromovimiento) → EnemyMovement (proye
 | `Assets/Scripts/AI/SteeringBehaviors.cs` | Seek, Flee, Arrive, Wander, Pursue, Evade |
 | `Assets/Scripts/AI/EnemyMovement.cs` | Integra steering con `NavMeshAgent.SetDestination` |
 | `Assets/Scripts/AI/EnemyVision.cs` | LoS compartido para agentes móviles |
-| `Assets/Scripts/AI/SteeringAgent.cs` | Componente auxiliar; no se usa en los prefabs activos |
 
 **Pathfinding:** algoritmo **A\*** mediante `NavMeshAgent` (Unity AI Navigation). El mapa incluye obstáculos y zonas no caminables; las rutas evitan paredes.
 
@@ -140,7 +139,6 @@ Assets/Scripts/
 │   ├── SteeringBehaviors.cs
 │   ├── EnemyMovement.cs
 │   ├── EnemyVision.cs
-│   └── SteeringAgent.cs
 ├── Enemies/
 │   ├── Turret.cs
 │   ├── Robot.cs
@@ -158,8 +156,7 @@ Assets/Scripts/
 │   └── PlayerHealth.cs
 ├── Pickups/
 │   ├── Pickup.cs
-│   ├── HealthPickup.cs
-│   └── WeaponPickup.cs
+│   └── HealthPickup.cs
 └── Misc/
     └── GameManager.cs
 ```
@@ -170,11 +167,11 @@ Assets/Scripts/
 
 1. Abrir el repositorio en **Unity 6** (versión indicada en `ProjectSettings/ProjectVersion.txt`).
 2. Abrir la escena `Assets/Scenes/MainLevel.unity`.
-3. Confirmar en **File → Build Settings** que `MainLevel` está habilitada.
+3. Confirmar en **File → Build Settings** que `MainMenu` (índice 0) y `MainLevel` (índice 1) están habilitadas.
 4. Si se modificó la geometría del nivel, ejecutar **Bake** del NavMesh (Window → AI → Navigation).
 5. Entrar en Play Mode y verificar que no haya errores en la consola.
 
-Los prefabs de armas en el suelo (`Weapon Pickup`) se desactivan al iniciar; las armas se obtienen por el inventario inicial. Las cajas del mapa otorgan vida.
+Las armas se obtienen por el inventario inicial (teclas 1–3). Las cajas del mapa otorgan vida.
 
 ---
 

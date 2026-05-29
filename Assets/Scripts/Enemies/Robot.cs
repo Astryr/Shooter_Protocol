@@ -77,6 +77,7 @@ public class Robot : MonoBehaviour
 
         agent.stoppingDistance = 0.5f;
         agent.isStopped = false;
+        EnemyGlowVisual.Apply(transform, EnemyGlowVisual.TealGlow);
         BeginPatrol();
     }
 

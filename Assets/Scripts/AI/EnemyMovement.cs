@@ -85,7 +85,8 @@ public static class EnemyMovement
         float wanderRadius,
         float wanderDistance,
         float wanderJitter,
-        float maxSpeed)
+        float maxSpeed,
+        float steerDistance = 6f)
     {
         Vector3 velocity = SteeringBehaviors.Wander(
             agent.transform.position,
@@ -96,7 +97,7 @@ public static class EnemyMovement
             wanderJitter,
             maxSpeed);
 
-        return ApplySteeringToNavMesh(agent, velocity, wanderDistance);
+        return ApplySteeringToNavMesh(agent, velocity, steerDistance);
     }
 
     /// <summary>
