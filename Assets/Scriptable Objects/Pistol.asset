@@ -1,23 +1,3 @@
-%YAML 1.1
-%TAG !u! tag:unity3d.com,2011:
---- !u!114 &11400000
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9eb3a0b5c1ed05644ad82778f657d754, type: 3}
-  m_Name: Pistol
-  m_EditorClassIdentifier: 
-  weaponPrefab: {fileID: 631429016235444996, guid: 3126476969e68f94693dbb3d4a762ec7, type: 3}
-  Damage: 2
-  FireRate: 0.2
-  HitVFXPrefab: {fileID: 2441387557689100275, guid: 19ac90b976612fc4391769548028212e, type: 3}
-  isAutomatic: 0
-  CanZoom: 0
-  ZoomAmount: 10
-  ZoomRotationSpeed: 0.3
-  MagazineSize: 12
+version https://git-lfs.github.com/spec/v1
+oid sha256:fa0d79dcd253ced10efc540360932486dc04be94b64cbebe3ac4b3b0e8312985
+size 719

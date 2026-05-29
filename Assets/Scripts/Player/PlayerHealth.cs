@@ -13,11 +13,15 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] GameObject gameOverContainer;
 
     int currentHealth;
+    int maxHealth;
     int gameOverVirtualCameraPriority = 20;
 
     void Awake()
     {
-        currentHealth = startingHealth;
+        maxHealth = shieldBars != null && shieldBars.Length > 0
+            ? shieldBars.Length
+            : startingHealth;
+        currentHealth = Mathf.Min(startingHealth, maxHealth);
         AdjustShieldUI();
     }
 
@@ -30,6 +34,14 @@ public class PlayerHealth : MonoBehaviour
         {
             PlayerGameOver();
         }
+    }
+
+    public void Heal(int amount)
+    {
+        if (amount <= 0) return;
+
+        currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
+        AdjustShieldUI();
     }
 
     void PlayerGameOver()
@@ -46,11 +58,11 @@ public class PlayerHealth : MonoBehaviour
     {
         for (int i = 0; i < shieldBars.Length; i++)
         {
-            if (i < currentHealth) 
+            if (i < currentHealth)
             {
                 shieldBars[i].gameObject.SetActive(true);
             }
-            else 
+            else
             {
                 shieldBars[i].gameObject.SetActive(false);
             }

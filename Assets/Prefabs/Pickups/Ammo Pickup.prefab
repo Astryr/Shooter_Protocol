@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 6724249497379457704}
   - component: {fileID: 4469410941639626110}
   m_Layer: 0
-  m_Name: Ammo Pickup
+  m_Name: Health Pickup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -98,11 +98,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 7106983957296533174}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 55ddb2f307d428345ac2567160ae433a, type: 3}
+  m_Script: {fileID: 11500000, guid: c7e8f9a0b1d2436589ab0cd2ef345679, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   rotationSpeed: 100
-  ammoAmount: 100
+  healthAmount: 2
 --- !u!1001 &9186328107378639355
 PrefabInstance:
   m_ObjectHideFlags: 0
