@@ -275,7 +275,7 @@ public class ActiveWeapon : MonoBehaviour
 
         timeSinceLastShot += Time.deltaTime;
 
-        if (!starterAssetsInputs.shoot) return;
+        if (!WantsToShoot()) return;
 
         if (timeSinceLastShot >= currentWeaponSO.FireRate && CanShoot())
         {
@@ -288,16 +288,16 @@ public class ActiveWeapon : MonoBehaviour
             if (weaponStates[currentWeaponIndex].ammo <= 0)
                 StartReload(currentWeaponIndex);
         }
-
-        if (!currentWeaponSO.isAutomatic)
-            starterAssetsInputs.ShootInput(false);
     }
 
     void HandleZoom()
     {
-        if (currentWeaponSO == null || !currentWeaponSO.CanZoom) return;
+        if (currentWeaponSO == null)
+            return;
 
-        if (starterAssetsInputs.zoom)
+        bool wantsZoom = IsZoomHeld() && currentWeaponSO.CanZoom;
+
+        if (wantsZoom)
         {
             CinemachineLensHelper.SetVerticalFov(playerFollowCamera, currentWeaponSO.ZoomAmount);
             if (weaponCamera != null)
@@ -316,4 +316,29 @@ public class ActiveWeapon : MonoBehaviour
             firstPersonController?.ChangeRotationSpeed(defaultRotationSpeed);
         }
     }
+
+#if ENABLE_INPUT_SYSTEM
+    bool WantsToShoot()
+    {
+        if (Mouse.current == null)
+            return starterAssetsInputs != null && starterAssetsInputs.shoot;
+
+        if (currentWeaponSO.isAutomatic)
+            return Mouse.current.leftButton.isPressed;
+
+        return Mouse.current.leftButton.wasPressedThisFrame;
+    }
+
+    bool IsZoomHeld()
+    {
+        if (Mouse.current == null)
+            return starterAssetsInputs != null && starterAssetsInputs.zoom;
+
+        return Mouse.current.rightButton.isPressed;
+    }
+#else
+    bool WantsToShoot() => starterAssetsInputs != null && starterAssetsInputs.shoot;
+
+    bool IsZoomHeld() => starterAssetsInputs != null && starterAssetsInputs.zoom;
+#endif
 }
