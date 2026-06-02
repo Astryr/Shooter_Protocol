@@ -172,4 +172,26 @@ Assets/Scripts/
 │   ├── Pickup.cs
 │   └── HealthPickup.cs
 └── Misc/
-    └── GameManager.cs
+    ├── GameManager.cs
+    ├── ExamCreditsUI.cs
+    ├── LabSecurityCamera.cs
+    └── LabMonitorDisplay.cs
+```
+
+---
+
+## Examen Programación Gráfica (2do parcial)
+
+Guía completa: [`Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md`](Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md)
+
+| Entregable | Ubicación |
+|---|---|
+| Shader Graph (crear en Unity) | `Assets/ShaderGraph/Exam/` |
+| Materiales del examen | `Assets/Materials/Exam/` |
+| Postproceso Bloom | `Assets/Settings/LabExamVolumeProfile.asset` |
+| Render Texture | `Assets/RenderTextures/SecurityCamera_RT.renderTexture` |
+| Créditos (apellidos) | `ExamCreditsUI` — tecla **C** o pausa **Credits** |
+
+Menú editor: **PG → Examen → …**
+
+Los shaders HLSL en `Assets/Shaders/Laboratory/` son prototipo; el parcial exige **Shader Graph**.

@@ -7,7 +7,7 @@ public class PlayerHealth : MonoBehaviour
 {
     [Range(1, 10)]
     [SerializeField] int startingHealth = 5;
-    [SerializeField] CinemachineVirtualCamera deathVirtualCamera;
+    [SerializeField] CinemachineVirtualCameraBase deathVirtualCamera;
     [SerializeField] Transform weaponCamera;
     [SerializeField] Image[] shieldBars;
     [SerializeField] GameObject gameOverContainer;

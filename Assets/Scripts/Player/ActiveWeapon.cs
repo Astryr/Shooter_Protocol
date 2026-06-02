@@ -12,7 +12,7 @@ public class ActiveWeapon : MonoBehaviour
     [SerializeField] WeaponSO[] inventoryWeapons;
     [SerializeField] WeaponSO startingWeapon;
     [SerializeField] int startingWeaponIndex = 0;
-    [SerializeField] CinemachineVirtualCamera playerFollowCamera;
+    [SerializeField] CinemachineVirtualCameraBase playerFollowCamera;
     [SerializeField] Camera weaponCamera;
     [SerializeField] GameObject zoomVignette;
     [SerializeField] TMP_Text ammoText;
@@ -45,9 +45,7 @@ public class ActiveWeapon : MonoBehaviour
         animator = GetComponent<Animator>();
         ResolveReferences();
 
-        defaultFOV = playerFollowCamera != null
-            ? playerFollowCamera.m_Lens.FieldOfView
-            : 40f;
+        defaultFOV = CinemachineLensHelper.GetVerticalFov(playerFollowCamera);
 
         defaultRotationSpeed = firstPersonController != null
             ? firstPersonController.RotationSpeed
@@ -57,7 +55,7 @@ public class ActiveWeapon : MonoBehaviour
     void ResolveReferences()
     {
         if (playerFollowCamera == null)
-            playerFollowCamera = FindFirstObjectByType<CinemachineVirtualCamera>();
+            playerFollowCamera = CinemachineLensHelper.FindFirstVirtualCamera();
 
         if (weaponCamera == null)
         {
@@ -301,8 +299,7 @@ public class ActiveWeapon : MonoBehaviour
 
         if (starterAssetsInputs.zoom)
         {
-            if (playerFollowCamera != null)
-                playerFollowCamera.m_Lens.FieldOfView = currentWeaponSO.ZoomAmount;
+            CinemachineLensHelper.SetVerticalFov(playerFollowCamera, currentWeaponSO.ZoomAmount);
             if (weaponCamera != null)
                 weaponCamera.fieldOfView = currentWeaponSO.ZoomAmount;
             if (zoomVignette != null)
@@ -311,8 +308,7 @@ public class ActiveWeapon : MonoBehaviour
         }
         else
         {
-            if (playerFollowCamera != null)
-                playerFollowCamera.m_Lens.FieldOfView = defaultFOV;
+            CinemachineLensHelper.SetVerticalFov(playerFollowCamera, defaultFOV);
             if (weaponCamera != null)
                 weaponCamera.fieldOfView = defaultFOV;
             if (zoomVignette != null)

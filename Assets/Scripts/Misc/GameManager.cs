@@ -12,12 +12,13 @@ using UnityEngine.InputSystem.UI;
 /// <summary>
 /// Win condition: cada EnemyHealth suma 1 al iniciar; al morir resta 1.
 /// Victoria cuando enemiesLeft llega a 0.
-/// ESC: pausa con Resume y Quit.
+/// ESC: pausa con Resume, Credits y Quit. Tecla C: créditos (examen PG).
 /// </summary>
 public class GameManager : MonoBehaviour
 {
     [SerializeField] TMP_Text enemiesLeftText;
     [SerializeField] GameObject youWinText;
+    [SerializeField] ExamCreditsUI examCreditsUI;
 
     int enemiesLeft;
     bool isPaused;
@@ -39,6 +40,9 @@ public class GameManager : MonoBehaviour
     {
         if (WasEscapePressed())
             TogglePause();
+
+        if (WasCreditsPressed())
+            ShowCredits();
     }
 
     void CacheGameplayComponents()
@@ -46,6 +50,9 @@ public class GameManager : MonoBehaviour
         starterAssetsInputs = FindFirstObjectByType<StarterAssetsInputs>();
         firstPersonController = FindFirstObjectByType<FirstPersonController>();
         activeWeapon = FindFirstObjectByType<ActiveWeapon>();
+
+        if (examCreditsUI == null)
+            examCreditsUI = FindFirstObjectByType<ExamCreditsUI>();
     }
 
     public void AdjustEnemiesLeft(int amount)
@@ -53,8 +60,13 @@ public class GameManager : MonoBehaviour
         enemiesLeft += amount;
         enemiesLeftText.text = EnemiesLeftString + enemiesLeft;
 
-        if (enemiesLeft <= 0 && youWinText != null)
-            youWinText.SetActive(true);
+        if (enemiesLeft <= 0)
+        {
+            if (youWinText != null)
+                youWinText.SetActive(true);
+
+            ShowCredits();
+        }
     }
 
     public void RestartLevelButton()
@@ -137,8 +149,9 @@ public class GameManager : MonoBehaviour
         Image overlay = pauseMenuRoot.AddComponent<Image>();
         overlay.color = new Color(0f, 0f, 0f, 0.65f);
 
-        CreatePauseButton(pauseMenuRoot.transform, "Resume", new Vector2(0f, 40f), ResumeGame);
-        CreatePauseButton(pauseMenuRoot.transform, "Quit", new Vector2(0f, -40f), QuitGame);
+        CreatePauseButton(pauseMenuRoot.transform, "Resume", new Vector2(0f, 80f), ResumeGame);
+        CreatePauseButton(pauseMenuRoot.transform, "Credits", new Vector2(0f, 0f), ShowCredits);
+        CreatePauseButton(pauseMenuRoot.transform, "Quit", new Vector2(0f, -80f), QuitGame);
 
         pauseMenuRoot.SetActive(false);
     }
@@ -184,13 +197,30 @@ public class GameManager : MonoBehaviour
         rect.offsetMax = Vector2.zero;
     }
 
+    void ShowCredits()
+    {
+        if (examCreditsUI == null)
+            examCreditsUI = FindFirstObjectByType<ExamCreditsUI>();
+
+        examCreditsUI?.ToggleCredits();
+    }
+
     bool WasEscapePressed()
     {
 #if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-            return true;
+        return Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.Escape);
 #endif
-        return false;
+    }
+
+    bool WasCreditsPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame;
+#else
+        return Input.GetKeyDown(KeyCode.C);
+#endif
     }
 
     void QuitGame()
