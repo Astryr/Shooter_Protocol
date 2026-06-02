@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using StarterAssets;
-using Cinemachine;
+using Unity.Cinemachine;
 using TMPro;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;

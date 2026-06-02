@@ -18,6 +18,11 @@ namespace StarterAssets
 		public float SprintSpeed = 6.0f;
 		[Tooltip("Rotation speed of the character")]
 		public float RotationSpeed = 1.0f;
+
+		public void ChangeRotationSpeed(float speed)
+		{
+			RotationSpeed = speed;
+		}
 		[Tooltip("Acceleration and deceleration")]
 		public float SpeedChangeRate = 10.0f;
 
@@ -120,11 +125,6 @@ namespace StarterAssets
 		private void LateUpdate()
 		{
 			CameraRotation();
-		}
-
-		public void ChangeRotationSpeed(float amount) 
-		{
-			RotationSpeed = amount;
 		}
 
 		private void GroundedCheck()

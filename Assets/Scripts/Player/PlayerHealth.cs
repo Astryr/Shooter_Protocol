@@ -1,4 +1,4 @@
-using Cinemachine;
+using Unity.Cinemachine;
 using StarterAssets;
 using UnityEngine;
 using UnityEngine.UI;

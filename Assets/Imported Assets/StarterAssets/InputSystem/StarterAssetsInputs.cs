@@ -22,11 +22,6 @@ namespace StarterAssets
 		public bool cursorLocked = true;
 		public bool cursorInputForLook = true;
 
-		void Start()
-		{
-			SetCursorState(true);
-		}
-
 #if ENABLE_INPUT_SYSTEM
 		public void OnMove(InputValue value)
 		{
@@ -60,7 +55,6 @@ namespace StarterAssets
 		{
 			ZoomInput(value.isPressed);
 		}
-
 #endif
 
 
@@ -101,7 +95,9 @@ namespace StarterAssets
 
 		public void SetCursorState(bool newState)
 		{
+			cursorLocked = newState;
 			Cursor.lockState = newState ? CursorLockMode.Locked : CursorLockMode.None;
+			Cursor.visible = !newState;
 		}
 	}
 	
