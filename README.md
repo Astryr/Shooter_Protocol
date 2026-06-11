@@ -35,7 +35,6 @@ El proyecto integra dos materias:
 | Ametralladora | `2` |
 | Francotirador | `3` |
 | Pausa | `ESC` → **Resume**, **Credits**, **Quit** |
-| Créditos (examen PG) | `C` |
 
 ### Armas y supervivencia
 
@@ -248,7 +247,6 @@ Assets/Scripts/
 └── Editor/
     └── PGExamMenu.cs
 ```
-
 ---
 
 ## Cómo abrir y probar
@@ -257,7 +255,6 @@ Assets/Scripts/
 2. Abrir la escena `Assets/Scenes/MainLevel.unity`.
 3. Verificar que el **NavMesh** esté bakeado (zona azul en Scene view con Navigation visible).
 4. **Play:** moverte, disparar, observar IA y efectos de shaders.
-5. Probar créditos con `C` o pausa → **Credits**.
 
 ### Build ejecutable (entrega PG)
 
@@ -279,23 +276,16 @@ Subir al repositorio:
 
 - Los robots usan **NavMeshAgent** (no Rigidbody) para movimiento. La navegación se actualiza con destinos estables para evitar trabas y oscilaciones.
 - Las animaciones de los robots pueden permanecer en **Idle** mientras se desplazan (el foco del proyecto es IA + shaders, no animación locomotion).
-- El objeto **Exam Systems** en la escena contiene `ExamCreditsUI` enlazado a `GameManager`.
 
 ---
 
 ## Créditos del equipo
 
-Configurados en el objeto `ExamSystems` de MainLevel (`ExamCreditsUI`):
-
 - Herrera, Oriana.
 - Lima, Thiago.
 - Muñoz, Guadalupe.
 - Jorge, Santino.
-
-Línea de materia en pantalla: *Inteligencia Artificial & Programación Gráfica*.
-
-> Si la consigna de PG limita el grupo a 3 integrantes, dejá solo los apellidos requeridos en el Inspector de `ExamCreditsUI`.
-
+- 
 ---
 
 *Shooter Protocol — Inteligencia Artificial + Programación Gráfica — Unity 6 URP*
