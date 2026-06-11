@@ -46,7 +46,7 @@ El proyecto integra dos materias:
 
 - **Victoria:** cada enemigo con `EnemyHealth` suma `+1` al contador al aparecer y `-1` al morir. Con `0` enemigos se muestra **YOU WIN!** y se abren los créditos.
 - **Pausa:** `ESC` congela el juego (`timeScale = 0`).
-- **Créditos:** tecla `C`, botón **Credits** en pausa o pantalla de victoria. Configurados en `Exam Systems` → `ExamCreditsUI`.
+- **Créditos:* Botón **Credits** en pausa o pantalla de victoria.
 
 ---
 
@@ -66,8 +66,6 @@ FSM (decisión)  →  SteeringBehaviors (velocidad deseada)  →  EnemyMovement 
 
 **Steering en uso:** Arrive, Pursue, Flee, Wander, Seek, Evade.  
 **Pathfinding:** A* vía `NavMeshAgent` (Unity AI Navigation).
-
-> Si se modifica la geometría del nivel, rebakear NavMesh: **Window → AI → Navigation → Bake**.
 
 ---
 
@@ -143,8 +141,6 @@ FSM (decisión)  →  SteeringBehaviors (velocidad deseada)  →  EnemyMovement 
 
 ## Programación Gráfica — Shader Graph
 
-Guía detallada: [`Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md`](Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md)
-
 **Carpetas:**
 
 | Recurso | Ruta |
@@ -153,8 +149,6 @@ Guía detallada: [`Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md`](Assets/ShaderGraph/
 | Materiales | `Assets/Materials/Exam/` |
 | Postproceso | `Assets/Settings/LabExamVolumeProfile.asset` |
 | Render Textures | `Assets/RenderTextures/SecurityCamera_RT`, `Exam_Secondary_RT` |
-
-**Menú editor:** `PG → Examen → …`
 
 ### Inventario de shaders
 
@@ -255,20 +249,6 @@ Assets/Scripts/
 2. Abrir la escena `Assets/Scenes/MainLevel.unity`.
 3. Verificar que el **NavMesh** esté bakeado (zona azul en Scene view con Navigation visible).
 4. **Play:** moverte, disparar, observar IA y efectos de shaders.
-
-### Build ejecutable (entrega PG)
-
-1. **File → Build Settings**
-2. Escena incluida: `MainLevel`
-3. **Build** (Windows x64 u otra plataforma requerida)
-
-### Entrega GitHub
-
-Subir al repositorio:
-
-- `Assets/`
-- `Packages/`
-- `ProjectSettings/`
 
 ---
 
