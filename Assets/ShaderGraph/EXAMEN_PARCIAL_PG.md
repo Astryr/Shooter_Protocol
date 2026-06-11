@@ -1,25 +1,25 @@
 # 2do Examen Parcial — Programación Gráfica (Shooter Protocol)
 
-Guía de cumplimiento para el trabajo grupal. **Todos los shaders del examen deben ser Shader Graph** (no los `.shader` HLSL de `Assets/Shaders/Laboratory/`, esos fueron prototipo).
+Guía de cumplimiento para el trabajo grupal. **Todos los shaders del examen son Shader Graph** en `Assets/ShaderGraph/Exam/` (13 archivos `.shadergraph`).
 
 ---
 
 ## Checklist rápido (mínimo + equipo de 4)
 
-| Requisito | Mínimo | Propuesto en este proyecto (12 SG) |
-|-----------|--------|-----------------------------------|
-| Lit + texturas | 3 | 4 |
-| Unlit | 2 | 2 |
-| Transparentes | 3 | 4 |
-| Postproceso | 1 | Bloom + Color Adjust (`LabExamVolumeProfile`) |
-| Seno (2 usos) | 2 | SG_Unlit_WarningPulse, SG_Trans_SmokeVent, SG_Lit_PillarPulse |
-| Coseno (2 usos) | 2 | SG_Lit_FloorPanels, SG_Trans_ShieldDot |
-| Distancia (2) | 2 | SG_Trans_ShieldDot, SG_Trans_SmokeVent |
-| Dot (2) | 2 | SG_Trans_HoloGlass, SG_Trans_ShieldDot |
-| Depth Fade | 1 | SG_Trans_LabFluid |
-| Scene Color | 1 | SG_Trans_HoloGlass |
-| Emission HDR + Bloom | 2 | SG_Lit_ReactorCore, SG_Lit_PillarPulse |
-| Render Texture | 1 | `SecurityCamera_RT` + `LabSecurityCamera` |
+| Requisito | Mínimo | En este proyecto (13 SG) |
+|-----------|--------|--------------------------|
+| Lit + texturas | 3 | 5 (`LabWall`, `LabCeiling`, `CratePanel`, `PillarPulse`, `ReactorCore`) |
+| Unlit | 2 | 4 (`WarningPulse`, `StatusLED`, `SecurityMonitor`, `RenderTextureView`) |
+| Transparentes | 3 | 4 (`HoloGlass`, `LabFluid`, `SmokeVent`, `ShieldDot`) |
+| Postproceso | 1 | Bloom (`LabExamVolumeProfile`) + Global Volume en MainLevel |
+| Seno (2 usos) | 2 | `LabCeiling`, `PillarPulse`, `ReactorCore`, `WarningPulse`, `StatusLED`, `SmokeVent` |
+| Coseno (2 usos) | 2 | `CratePanel`, `ShieldDot` |
+| Distancia (2) | 2 | `SmokeVent`, `ShieldDot` |
+| Dot (2) | 2 | `HoloGlass`, `ShieldDot` |
+| Depth Fade | 1 | `LabFluid` |
+| Scene Color | 1 | `HoloGlass` |
+| Emission HDR + Bloom | 2 | `ReactorCore`, `PillarPulse`, `LabCeiling` |
+| Render Texture | 1 | `SecurityCamera_RT` + `Exam_Secondary_RT` (2 monitores) |
 | Créditos | 1 | `ExamCreditsUI` — tecla **C** o botón **Credits** en pausa |
 
 ---
@@ -28,10 +28,10 @@ Guía de cumplimiento para el trabajo grupal. **Todos los shaders del examen deb
 
 | Integrante | Shader Graphs a crear | Conceptos que cubre |
 |------------|----------------------|---------------------|
-| **1** | `SG_Lit_LabWall`, `SG_Lit_LabFloor`, `SG_Lit_CratePanel` | Lit + texturas (Grid sci-fi del pack) |
-| **2** | `SG_Unlit_WarningPulse`, `SG_Unlit_StatusLED`, `SG_Lit_PillarPulse` | Unlit + Lit emisión HDR (bloom) |
+| **1** | `SG_Lit_LabWall`, `SG_Lit_LabCeiling`, `SG_Lit_CratePanel` | Lit + texturas + seno/coseno |
+| **2** | `SG_Unlit_WarningPulse`, `SG_Unlit_StatusLED`, `SG_Lit_PillarPulse`, `SG_Lit_ReactorCore` | Unlit + Lit emisión HDR (bloom) |
 | **3** | `SG_Trans_LabFluid`, `SG_Trans_SmokeVent`, `SG_Trans_ShieldDot` | Transparentes + Depth Fade + distancia |
-| **4** | `SG_Trans_HoloGlass`, `SG_Unlit_SecurityMonitor`, postproceso, RT, créditos | Scene Color + Render Texture + integración |
+| **4** | `SG_Trans_HoloGlass`, `SG_Unlit_SecurityMonitor`, `SG_Unlit_RenderTextureView`, postproceso, créditos | Scene Color + Render Texture + integración |
 
 ---
 
@@ -52,7 +52,7 @@ Crear cada graph: **Click derecho → Create → Shader Graph → URP → Lit / 
 | Material | Objetos de la escena | Zona |
 |----------|---------------------|------|
 | `Mat_SG_Lit_LabWall` | Paredes grandes, ProBuilder boxes | Estructura general |
-| `Mat_SG_Lit_LabFloor` | Suelo / losas | Toda el área jugable |
+| `Mat_SG_Lit_LabCeiling` | Techos / paneles superiores | Estructura general |
 | `Mat_SG_Lit_CratePanel` | Cajas decorativas | Cobertura |
 | `Mat_SG_Lit_PillarPulse` | Pilares bajo **Misc → Cylinder** (mayoría) | Pasillos |
 | `Mat_SG_Unlit_WarningPulse` | Pilares en accesos / Spawn Gate | Advertencia |
@@ -62,7 +62,8 @@ Crear cada graph: **Click derecho → Create → Shader Graph → URP → Lit / 
 | `Mat_SG_Trans_SmokeVent` | Quad vertical en respiraderos | Vapor |
 | `Mat_SG_Trans_ShieldDot` | (Opcional) esfera alrededor del jugador al dañarse | Escudo |
 | `Mat_SG_Lit_ReactorCore` | 1 pilar o esfera central brillante | Núcleo del lab |
-| `Mat_SG_Unlit_SecurityMonitor` | Quad “pantalla” del monitor | Cámara RT |
+| `Mat_SG_Unlit_SecurityMonitor` | Monitor CCTV en pared | `SecurityCamera_RT` |
+| `Mat_SG_Unlit_RenderTextureView` | Segundo monitor | `Exam_Secondary_RT` |
 
 ---
 
@@ -106,14 +107,13 @@ Crear cada graph: **Click derecho → Create → Shader Graph → URP → Lit / 
 - **Textura:** `Assets/Imported Assets/StarterAssets/Environment/Art/Textures/Grid_01_BaseMap.png`
 - **Normal:** `Grid_01_Normal.png`
 
-### 2) `SG_Lit_LabFloor` — Lit + coseno (Integrante 1 — **Coseno A**)
+### 2) `SG_Lit_LabCeiling` — Lit + textura + seno + emisión (Integrante 1)
 
-- Sample Texture 2D (suelo) × **Cos**(**Time** × Speed + UV.x × Frequency) mezclado suave (Lerp 0.85–1.0).
-- Nodos: UV → Multiply → Add Time → Cosine → Lerp → Base Color.
+- Sample Texture 2D (techo) + **Sin**(**Time** × Speed) en emisión HDR para bloom en techos.
 
-### 3) `SG_Lit_CratePanel` — Lit + textura (Integrante 1)
+### 3) `SG_Lit_CratePanel` — Lit + coseno (Integrante 1 — **Coseno A**)
 
-- Similar a Wall; usar `Colour_Palette_SciFi.png` del pack GDTV con tiling alto.
+- Sample Texture 2D × **Cos**(**Time** × Speed + UV) mezclado suave (Lerp) → Base Color.
 
 ### 4) `SG_Lit_PillarPulse` — Lit + emisión HDR + seno (Integrante 2 — **Seno A**, **Bloom**)
 
@@ -165,6 +165,10 @@ Crear cada graph: **Click derecho → Create → Shader Graph → URP → Lit / 
 - Propiedad `_MonitorTex` (Texture2D) ← asignar **SecurityCamera_RT** en runtime o material.
 - Sample Texture → Base Color (Unlit).
 
+### 13) `SG_Unlit_RenderTextureView` — Unlit + RT secundaria (Integrante 4)
+
+- Igual que SecurityMonitor pero con **Exam_Secondary_RT** en el segundo monitor del lab.
+
 ---
 
 ## Conceptos obligatorios — mapa
@@ -172,23 +176,13 @@ Crear cada graph: **Click derecho → Create → Shader Graph → URP → Lit / 
 | Concepto | Shader(s) |
 |----------|-------------|
 | Seno | `SG_Lit_PillarPulse`, `SG_Unlit_WarningPulse`, `SG_Trans_SmokeVent` |
-| Coseno | `SG_Lit_LabFloor`, `SG_Trans_HoloGlass` (opcional en rim) |
+| Coseno | `SG_Lit_CratePanel`, `SG_Trans_ShieldDot` |
 | Distancia | `SG_Trans_SmokeVent`, `SG_Trans_ShieldDot` |
 | Dot | `SG_Trans_HoloGlass`, `SG_Trans_ShieldDot` |
 | Depth Fade | `SG_Trans_LabFluid` |
 | Scene Color | `SG_Trans_HoloGlass` |
 | Emission + Bloom | `SG_Lit_PillarPulse`, `SG_Lit_ReactorCore` |
-| Render Texture | `SG_Unlit_SecurityMonitor` + `LabSecurityCamera` |
-
----
-
-## Migrar desde shaders HLSL actuales
-
-Los materiales en `Assets/Materials/Laboratory/` usan HLSL (`Laboratory/Grid Pillar`, etc.). Para el examen:
-
-1. Crear equivalentes en Shader Graph (tabla arriba).
-2. Reasignar cilindros en **Misc** a `Assets/Materials/Exam/`.
-3. Dejar HLSL solo como referencia o borrar antes de entregar si el profesor exige solo SG.
+| Render Texture | `SG_Unlit_SecurityMonitor`, `SG_Unlit_RenderTextureView` + `LabSecurityCamera` |
 
 ---
 
@@ -211,4 +205,4 @@ Verificación manual en Play Mode:
 - [ ] Al menos 3 tipos transparentes visibles
 - [ ] Monitor muestra imagen de la cámara secundaria
 - [ ] Créditos con 4 apellidos
-- [ ] 12 archivos `.shadergraph` en `Assets/ShaderGraph/Exam/`
+- [ ] 13 archivos `.shadergraph` en `Assets/ShaderGraph/Exam/`

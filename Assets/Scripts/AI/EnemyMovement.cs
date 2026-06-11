@@ -8,8 +8,9 @@ using UnityEngine.AI;
 /// Flujo:
 ///   1. FSM del enemigo elige el estado (Patrol, Chase, Flee...).
 ///   2. SteeringBehaviors calcula la velocidad/dirección deseada (micromovimiento).
-///   3. Se proyecta un punto en esa dirección y NavMesh.SamplePosition lo valida.
-///   4. NavMeshAgent.SetDestination → Unity calcula la ruta A* alrededor de obstáculos.
+///   3. Seek / Arrive / Pursue / Flee / Evade proyectan un destino en NavMesh (sin recalcular cada frame).
+///   4. Wander sigue usando un punto de sondeo adelante en la dirección del steering.
+///   5. NavMeshAgent.SetDestination → Unity calcula la ruta A* alrededor de obstáculos.
 /// </summary>
 public static class EnemyMovement
 {

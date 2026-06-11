@@ -233,6 +233,19 @@ public class FleeingRobot : MonoBehaviour
                 }
             }
         }
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit fallbackHit, patrolRadius, NavMesh.AllAreas))
+        {
+            Vector3 fallback = fallbackHit.position + Random.insideUnitSphere * 3f;
+            fallback.y = fallbackHit.position.y;
+
+            if (NavMesh.SamplePosition(fallback, out NavMeshHit nearHit, 4f, NavMesh.AllAreas))
+            {
+                patrolWaypoint = nearHit.position;
+                hasPatrolWaypoint = true;
+                EnemyMovement.TrySetNavMeshDestination(agent, patrolWaypoint, arrivalSlowingRadius);
+            }
+        }
     }
 
     void UpdateAttackState()

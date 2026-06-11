@@ -1,16 +1,26 @@
 # Shooter Protocol
 
-Shooter en primera persona para Unity 6 (URP). El jugador recorre un nivel sci-fi, elimina a los agentes hostiles y gana cuando el contador **Enemies Left** llega a cero. La inteligencia artificial forma parte del gameplay: cada enemigo percibe al jugador, decide en una FSM y se desplaza con steering behaviors y pathfinding sobre NavMesh.
+Shooter en primera persona para Unity 6 (URP). El jugador recorre un laboratorio sci-fi, elimina agentes hostiles y gana cuando el contador **Enemies Left** llega a cero.
+
+El proyecto integra dos materias:
+
+- **Inteligencia Artificial:** FSM, Line of Sight, steering behaviors y pathfinding A* (NavMesh) en todos los enemigos móviles.
+- **Programación Gráfica:** 13 Shader Graphs integrados en el nivel, postproceso Bloom y Render Textures en monitores del lab.
+
+---
 
 ## Datos del proyecto
 
 | Campo | Valor |
 |---|---|
 | Motor | Unity 6 (`6000.3.11f1`) |
-| Escena Principal| `Assets/Scenes/MainLevel.unity` |
-| Render pipeline | Universal Render Pipeline |
+| Escena principal | `Assets/Scenes/MainLevel.unity` |
+| Render pipeline | Universal Render Pipeline (URP) |
 | Input | Input System Package |
-| Objetivo | Eliminar a todos los enemigos y mantenerte con vida hasta el final |
+| Navegación | AI Navigation (NavMesh) |
+| Objetivo | Eliminar a todos los enemigos y mantenerte con vida |
+
+---
 
 ## Controles
 
@@ -24,51 +34,24 @@ Shooter en primera persona para Unity 6 (URP). El jugador recorre un nivel sci-f
 | Pistola | `1` |
 | Ametralladora | `2` |
 | Francotirador | `3` |
-| Pausa | `ESC` (botones **Resume** y **Quit**) |
+| Pausa | `ESC` → **Resume**, **Credits**, **Quit** |
+| Créditos (examen PG) | `C` |
 
 ### Armas y supervivencia
 
-- El jugador inicia con las tres armas (teclas `1`–`3`). Cada arma tiene cargador de tamaño fijo; al vaciarlo aparece `RLD` y tras un breve tiempo se recarga solo.
+- El jugador inicia con las tres armas (`1`–`3`). Cada arma tiene cargador de tamaño fijo; al vaciarlo aparece `RLD` y se recarga automáticamente.
 - No hay pickups de munición en el nivel.
-- Las cajas del mapa restauran vida (`HealthPickup`, +2 HP por defecto). Prefab: `Assets/Prefabs/Pickups/Health Pickup.prefab`.
+- Las cajas del mapa restauran vida (`HealthPickup`, +2 HP). Prefab: `Assets/Prefabs/Pickups/Health Pickup.prefab`.
 
-### Victoria y pausa
+### Victoria, pausa y créditos
 
-- **Victoria:** cada enemigo con `EnemyHealth` suma `+1` al contador al aparecer y `-1` al morir. Con `0` enemigos se muestra **YOU WIN!**
-- **Pausa:** `ESC` congela el juego (`timeScale = 0`) y muestra overlay con **Resume** y **Quit**. En el Editor, **Quit** detiene Play Mode.
-
----
-
-## Cumplimiento de consignas
-
-### Entrega 1 — Clase 7
-
-| Requisito | Estado | Implementación |
-|---|---|---|
-| Escena jugable con jugador controlable | Cumplido | `MainLevel.unity`, Starter Assets FPS, armas y vida |
-| Al menos 3 agentes con IA integrada | Cumplido | Torreta, Robot, Fleeing Robot (+ Spawn Gate y agentes E2) |
-| Line of Sight que influya en el comportamiento | Cumplido | `EnemyVision.cs`, LoS en torreta y transiciones FSM móviles |
-| Sistema de decisión (FSM u otro) | Cumplido | FSM explícita en cada agente móvil; torreta con ciclo apuntar/disparar |
-| Al menos 3 conductas por agente | Cumplido | Ver tabla por agente más abajo |
-| Identidad visual coherente | Cumplido | Pack GDTV + esferas de color por tipo de enemigo |
-
-### Entrega 2 — Clase 16 / 17
-
-| Requisito | Estado | Implementación |
-|---|---|---|
-| Entrega 1 sigue funcionando | Cumplido | Comportamientos E1 preservados en scripts base |
-| Al menos 3 steering behaviors | Cumplido | 6 en `SteeringBehaviors.cs`; 5+ en uso en runtime |
-| Pathfinding (A*, Dijkstra o Theta*) | Cumplido | **A\*** vía `NavMeshAgent` (Unity AI Navigation) |
-| Integración decisión + steering + path | Cumplido | FSM → `SteeringBehaviors` → `EnemyMovement` → NavMesh |
-| Mapa con obstáculos y navegación | Cumplido | NavMesh en `MainLevel` (requiere bake si se edita geometría) |
-| Al menos 3 agentes complementarios | Cumplido | Charger Robot y Sniper Robot (más diversidad en escena) |
-| README con arquitectura por agente | Cumplido | Este documento |
-
-**Steering en uso en runtime:** Arrive, Pursue, Flee, Wander, Seek, Evade.
+- **Victoria:** cada enemigo con `EnemyHealth` suma `+1` al contador al aparecer y `-1` al morir. Con `0` enemigos se muestra **YOU WIN!** y se abren los créditos.
+- **Pausa:** `ESC` congela el juego (`timeScale = 0`).
+- **Créditos:** tecla `C`, botón **Credits** en pausa o pantalla de victoria. Configurados en `Exam Systems` → `ExamCreditsUI`.
 
 ---
 
-## Arquitectura de IA
+## Inteligencia Artificial — Arquitectura
 
 ```
 FSM (decisión)  →  SteeringBehaviors (velocidad deseada)  →  EnemyMovement (destino en NavMesh)  →  NavMesh A* (ruta)
@@ -77,74 +60,158 @@ FSM (decisión)  →  SteeringBehaviors (velocidad deseada)  →  EnemyMovement 
 | Archivo | Rol |
 |---|---|
 | `Assets/Scripts/AI/SteeringBehaviors.cs` | Seek, Flee, Arrive, Wander, Pursue, Evade |
-| `Assets/Scripts/AI/EnemyMovement.cs` | Proyecta steering al NavMesh y llama `NavMeshAgent.SetDestination` |
-| `Assets/Scripts/AI/EnemyVision.cs` | Line of Sight compartido (raycast, capas configurables) |
-| `Assets/Scripts/Enemies/EnemyHealth.cs` | Vida, muerte y contador global vía `GameManager` |
-| `Assets/Scripts/Misc/GameManager.cs` | Contador de enemigos, victoria, pausa |
+| `Assets/Scripts/AI/EnemyMovement.cs` | Integra steering con NavMesh; evita recalcular destino cada frame |
+| `Assets/Scripts/AI/EnemyVision.cs` | Line of Sight compartido (raycast) |
+| `Assets/Scripts/Enemies/EnemyHealth.cs` | Vida, muerte y contador global |
+| `Assets/Scripts/Misc/GameManager.cs` | Contador de enemigos, victoria, pausa, créditos |
+
+**Steering en uso:** Arrive, Pursue, Flee, Wander, Seek, Evade.  
+**Pathfinding:** A* vía `NavMeshAgent` (Unity AI Navigation).
+
+> Si se modifica la geometría del nivel, rebakear NavMesh: **Window → AI → Navigation → Bake**.
 
 ---
 
-## Agentes — Entrega 1
+## Agentes de IA
 
-### Torreta (`Turret.cs`)
+### Entrega 1 — Clase 7
 
-- **Movimiento:** ninguno (agente estático).
-- **Decisión:** apunta al jugador; dispara solo si el raycast desde el cañón impacta al jugador sin obstáculos intermedios.
-- **Conductas (≥3):** apuntar, comprobar LoS, disparar, esperar entre disparos (`fireRate`).
-- **Steering / pathfinding:** no aplica.
+| Agente | Script | FSM | Conductas (≥3) | LoS | Steering + A* |
+|---|---|---|---|---|---|
+| **Torreta** | `Turret.cs` | Apuntar / disparar | Apuntar, comprobar LoS, disparar, esperar | Sí (raycast propio) | — (estática) |
+| **Robot** | `Robot.cs` | Patrol \| Chase | Waypoint, patrullar, esperar, perseguir, abandonar | Sí | Arrive, Pursue |
+| **Fleeing Robot** | `FleeingRobot.cs` | Patrol \| Attack \| Flee | Patrullar, esperar, disparar, huir, reanudar ataque | Sí | Arrive, Flee |
+| **Spawn Gate** | `SpawnGate.cs` | — | Genera robots con `Robot.cs` en intervalos | — | — |
 
-### Robot (`Robot.cs`)
+### Entrega 2 — Clase 16 / 17
 
-- **FSM:** `Patrol` | `Chase`.
-- **Percepción:** entra en persecución solo con jugador visible (`visionRange` + LoS). Si pierde visión o distancia, vuelve a patrulla.
-- **Conductas (≥3):** elegir waypoint en NavMesh, patrullar, esperar en punto, perseguir, abandonar persecución.
-- **Entrega 2:** patrulla con **Arrive**; persecución con **Pursue**; ruta **A\***.
-
-### Fleeing Robot (`FleeingRobot.cs`)
-
-- **FSM:** `Patrol` | `Attack` | `Flee`.
-- **Percepción:** ataca con LoS a distancia; si el jugador se acerca por debajo de `fleeTriggerDistance`, huye aunque aún lo vea.
-- **Conductas (≥3):** patrullar, esperar, disparar, huir rápido, reanudar patrulla/ataque según distancia y visión.
-- **Entrega 2:** **Arrive** en patrulla, **Flee** en huida, **A\***.
-
-### Spawn Gate (`SpawnGate.cs`)
-
-- Genera robots adicionales en intervalos (`maxSpawns` por puerta). No es un agente de combate: no lleva lógica FSM propia; los robots spawneados usan `Robot.cs` + `EnemyHealth`.
-
----
-
-## Agentes — Entrega 2
-
-### Robot cargador (`ChargerRobot.cs`)
-
-- **FSM:** `Patrol` | `Charge` | `Recover`.
-- **Steering:** **Wander** en patrulla, **Seek** al detectar jugador con LoS.
-- **Combate:** daño por contacto; sin proyectiles.
-- **Visual:** esfera naranja/roja (`EnemyGlowVisual` / material).
-
-### Robot francotirador (`SniperRobot.cs`)
-
-- **FSM:** `Hold` | `Snipe` | `Evade`.
-- **Steering:** **Arrive** al puesto, **Evade** si el jugador se acerca (con predicción de movimiento).
-- **Combate:** disparo a media/larga distancia; no dispara por debajo del rango mínimo.
-- **Visual:** esfera violeta.
-
----
-
-## Tabla resumen
-
-| Agente | Entrega | FSM | Steering (E2) | Pathfinding |
+| Agente | Script | FSM | Steering | Rol |
 |---|---|---|---|---|
-| Torreta | 1 | Apuntar / disparar con LoS | — | — |
-| Robot | 1 + 2 | Patrol, Chase | Arrive, Pursue | A* (NavMesh) |
-| Fleeing Robot | 1 + 2 | Patrol, Attack, Flee | Arrive, Flee | A* (NavMesh) |
-| Spawn Gate | 1 | Spawn temporal | — | — |
-| Charger Robot | 2 | Patrol, Charge, Recover | Wander, Seek | A* (NavMesh) |
-| Sniper Robot | 2 | Hold, Snipe, Evade | Arrive, Evade | A* (NavMesh) |
+| **Charger Robot** | `ChargerRobot.cs` | Patrol \| Charge \| Recover | Wander, Seek | Carga al jugador; daño por contacto |
+| **Sniper Robot** | `SniperRobot.cs` | Hold \| Snipe \| Evade | Arrive, Evade | Disparo a distancia; esquiva si te acercás |
+
+### Detalle por agente
+
+**Torreta** — Estática. Rota la cabeza hacia el jugador y dispara solo con línea de visión libre desde el cañón.
+
+**Robot** — Patrulla waypoints aleatorios en NavMesh; si ve al jugador (rango + LoS), persigue con Pursue. Al tocar al jugador se autodestruye.
+
+**Fleeing Robot** — Patrulla, ataca a distancia con proyectiles si tiene LoS, y huye si el jugador entra en `fleeTriggerDistance`.
+
+**Charger Robot** — Vaga con Wander; al detectar jugador con LoS carga con Seek. Tras perderlo, entra en Recover.
+
+**Sniper Robot** — Vuelve a su puesto (Hold + Arrive), dispara en Snipe si el jugador está lejos y visible, y usa Evade si se acerca demasiado.
+
+**Spawn Gate** — Instancia robots en `spawnPoint` y los coloca en NavMesh con `EnemyMovement.EnsureOnNavMesh`.
+
+### Identificación visual de enemigos
+
+| Agente | Color de esfera (glow) |
+|---|---|
+| Robot / Torreta | Cian (`EnemyGlowVisual.TealGlow`) |
+| Fleeing Robot | Amarillo |
+| Charger Robot | Naranja / rojo |
+| Sniper Robot | Violeta |
 
 ---
 
-## Estructura de scripts (código del juego)
+## Cumplimiento — Inteligencia Artificial
+
+### Entrega 1
+
+| Requisito | Estado |
+|---|---|
+| Escena jugable con jugador | Cumplido |
+| ≥ 3 agentes con IA integrada | Cumplido (Torreta, Robot, Fleeing + más en E2) |
+| Line of Sight que influya | Cumplido |
+| FSM / árbol / puntaje | Cumplido (FSM explícita) |
+| ≥ 3 conductas por agente | Cumplido |
+| Estética coherente | Cumplido |
+
+### Entrega 2
+
+| Requisito | Estado |
+|---|---|
+| Entrega 1 sigue funcionando | Cumplido |
+| ≥ 3 steering behaviors | Cumplido (6 implementados, 6 en uso) |
+| Pathfinding A* / Dijkstra / Theta* | Cumplido (A* NavMesh) |
+| Integración FSM + steering + path | Cumplido |
+| Mapa con obstáculos y navegación | Cumplido |
+| ≥ 3 agentes que actúen distinto | Cumplido |
+| README con arquitectura | Cumplido (este documento) |
+
+---
+
+## Programación Gráfica — Shader Graph
+
+Guía detallada: [`Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md`](Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md)
+
+**Carpetas:**
+
+| Recurso | Ruta |
+|---|---|
+| Shader Graphs (13) | `Assets/ShaderGraph/Exam/` |
+| Materiales | `Assets/Materials/Exam/` |
+| Postproceso | `Assets/Settings/LabExamVolumeProfile.asset` |
+| Render Textures | `Assets/RenderTextures/SecurityCamera_RT`, `Exam_Secondary_RT` |
+
+**Menú editor:** `PG → Examen → …`
+
+### Inventario de shaders
+
+| # | Shader | Tipo | Uso en MainLevel | Conceptos clave |
+|---|---|---|---|---|
+| 1 | `SG_Lit_LabWall` | Lit + textura | Paredes / estructura | Lit + textura |
+| 2 | `SG_Lit_LabCeiling` | Lit + textura | Techos | Lit, Seno, Emission, Bloom |
+| 3 | `SG_Lit_PillarPulse` | Lit + textura | Pilares (Cylinder) | Lit, Seno, Emission, Bloom |
+| 4 | `SG_Lit_CratePanel` | Lit + textura | Cajas decorativas | Lit, Coseno |
+| 5 | `SG_Lit_ReactorCore` | Lit + emisión | Núcleos / focos de energía | Seno, Emission, Bloom |
+| 6 | `SG_Unlit_WarningPulse` | Unlit | Pilares de advertencia | Unlit, Seno |
+| 7 | `SG_Unlit_StatusLED` | Unlit | Esferas LED junto a luces | Unlit, Seno, Step |
+| 8 | `SG_Unlit_SecurityMonitor` | Unlit + RT | Monitor CCTV en pared | Unlit, Render Texture, Seno |
+| 9 | `SG_Unlit_RenderTextureView` | Unlit + RT | Segundo monitor | Unlit, Render Texture |
+| 10 | `SG_Trans_HoloGlass` | Transparente | Cilindros holográficos | Scene Color, Dot |
+| 11 | `SG_Trans_LabFluid` | Transparente | Charcos | Depth Fade, Seno |
+| 12 | `SG_Trans_SmokeVent` | Transparente | Respiraderos (humo) | Distancia, Seno |
+| 13 | `SG_Trans_ShieldDot` | Transparente | Esferas de contención | Dot, Distancia, Coseno |
+
+### Cumplimiento — Programación Gráfica
+
+| Requisito | Mínimo | Estado |
+|---|---|---|
+| Lit + texturas | 3 | Cumplido (4+) |
+| Unlit | 2 | Cumplido (4) |
+| Transparentes | 3 | Cumplido (4) |
+| Postproceso | 1 | Cumplido (Bloom + Global Volume) |
+| Seno (2 usos) | 2 | Cumplido |
+| Coseno (2 usos) | 2 | Cumplido |
+| Distancia (2 usos) | 2 | Cumplido |
+| Dot Product (2 usos) | 2 | Cumplido |
+| Depth Fade | 1 | Cumplido |
+| Scene Color | 1 | Cumplido |
+| Emission HDR + Bloom (2 shaders) | 2 | Cumplido |
+| Render Texture | 1 | Cumplido (2 RT en escena) |
+| Créditos con apellidos | 1 | Cumplido |
+| Solo Shader Graph | Todos | Cumplido |
+
+### Monitores y cámaras (Render Texture)
+
+| Objeto | Cámara | Render Texture | Material |
+|---|---|---|---|
+| `SecurityMonitor_CCTV` | `Security Camera` | `SecurityCamera_RT` | `Mat_SG_Unlit_SecurityMonitor` |
+| `SecondaryMonitor` | `SecondaryCamera` | `Exam_Secondary_RT` | `Mat_SG_Unlit_RenderTextureView` |
+
+Scripts: `LabSecurityCamera.cs`, `LabMonitorDisplay.cs`.
+
+### Postproceso
+
+- Perfil: `LabExamVolumeProfile.asset` (Bloom activo).
+- Escena: GameObject **Global Volume** con Weight = 1 e Is Global activado.
+- También referenciado en `PC_RPAsset` y `Mobile_RPAsset`.
+
+---
+
+## Estructura de scripts
 
 ```
 Assets/Scripts/
@@ -167,31 +234,68 @@ Assets/Scripts/
 │   ├── ActiveWeapon.cs
 │   ├── Weapon.cs
 │   ├── WeaponSO.cs
-│   └── PlayerHealth.cs
+│   ├── PlayerHealth.cs
+│   └── CinemachineLensHelper.cs
 ├── Pickups/
 │   ├── Pickup.cs
 │   └── HealthPickup.cs
-└── Misc/
-    ├── GameManager.cs
-    ├── ExamCreditsUI.cs
-    ├── LabSecurityCamera.cs
-    └── LabMonitorDisplay.cs
+├── Misc/
+│   ├── GameManager.cs
+│   ├── ExamCreditsUI.cs
+│   ├── ExamSystemsBootstrap.cs
+│   ├── LabSecurityCamera.cs
+│   └── LabMonitorDisplay.cs
+└── Editor/
+    └── PGExamMenu.cs
 ```
 
 ---
 
-## Examen Programación Gráfica (2do parcial)
+## Cómo abrir y probar
 
-Guía completa: [`Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md`](Assets/ShaderGraph/EXAMEN_PARCIAL_PG.md)
+1. Clonar el repositorio y abrir la carpeta en **Unity 6**.
+2. Abrir la escena `Assets/Scenes/MainLevel.unity`.
+3. Verificar que el **NavMesh** esté bakeado (zona azul en Scene view con Navigation visible).
+4. **Play:** moverte, disparar, observar IA y efectos de shaders.
+5. Probar créditos con `C` o pausa → **Credits**.
 
-| Entregable | Ubicación |
-|---|---|
-| Shader Graph (crear en Unity) | `Assets/ShaderGraph/Exam/` |
-| Materiales del examen | `Assets/Materials/Exam/` |
-| Postproceso Bloom | `Assets/Settings/LabExamVolumeProfile.asset` |
-| Render Texture | `Assets/RenderTextures/SecurityCamera_RT.renderTexture` |
-| Créditos (apellidos) | `ExamCreditsUI` — tecla **C** o pausa **Credits** |
+### Build ejecutable (entrega PG)
 
-Menú editor: **PG → Examen → …**
+1. **File → Build Settings**
+2. Escena incluida: `MainLevel`
+3. **Build** (Windows x64 u otra plataforma requerida)
 
-Los shaders HLSL en `Assets/Shaders/Laboratory/` son prototipo; el parcial exige **Shader Graph**.
+### Entrega GitHub
+
+Subir al repositorio:
+
+- `Assets/`
+- `Packages/`
+- `ProjectSettings/`
+
+---
+
+## Notas técnicas
+
+- Los robots usan **NavMeshAgent** (no Rigidbody) para movimiento. La navegación se actualiza con destinos estables para evitar trabas y oscilaciones.
+- Las animaciones de los robots pueden permanecer en **Idle** mientras se desplazan (el foco del proyecto es IA + shaders, no animación locomotion).
+- El objeto **Exam Systems** en la escena contiene `ExamCreditsUI` enlazado a `GameManager`.
+
+---
+
+## Créditos del equipo
+
+Configurados en el objeto `ExamSystems` de MainLevel (`ExamCreditsUI`):
+
+- Herrera, Oriana.
+- Lima, Thiago.
+- Muñoz, Guadalupe.
+- Jorge, Santino.
+
+Línea de materia en pantalla: *Inteligencia Artificial & Programación Gráfica*.
+
+> Si la consigna de PG limita el grupo a 3 integrantes, dejá solo los apellidos requeridos en el Inspector de `ExamCreditsUI`.
+
+---
+
+*Shooter Protocol — Inteligencia Artificial + Programación Gráfica — Unity 6 URP*

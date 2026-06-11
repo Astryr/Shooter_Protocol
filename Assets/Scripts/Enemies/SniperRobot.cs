@@ -203,9 +203,11 @@ public class SniperRobot : MonoBehaviour
             new Vector3(transform.position.x, 0f, transform.position.z),
             new Vector3(guardPosition.x, 0f, guardPosition.z));
 
-        if (distToPost <= holdArrivalRadius + 0.25f)
+        if (distToPost <= holdArrivalRadius + 0.25f || EnemyMovement.HasReachedDestination(agent, holdArrivalRadius))
         {
-            agent.isStopped = true;
+            if (!agent.isStopped)
+                EnemyMovement.StopAgent(agent);
+
             lastSteeringVelocity = Vector3.zero;
             return;
         }
