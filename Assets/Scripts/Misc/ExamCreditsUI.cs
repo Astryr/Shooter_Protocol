@@ -53,7 +53,7 @@ public class ExamCreditsUI : MonoBehaviour
         panelRect.offsetMax = Vector2.zero;
 
         Image overlay = creditsRoot.AddComponent<Image>();
-        overlay.color = new Color(0.02f, 0.05f, 0.1f, 0.92f);
+        overlay.color = new Color(0f, 0f, 0f, 1f);
 
         GameObject textObject = new GameObject("Credits Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         textObject.transform.SetParent(creditsRoot.transform, false);
@@ -120,8 +120,6 @@ public class ExamCreditsUI : MonoBehaviour
                 lines.AppendLine("• " + participantSurnames[i]);
         }
 
-        lines.AppendLine();
-        lines.AppendLine("Efectos: Shader Graph + Postproceso URP");
         return lines.ToString();
     }
 }
