@@ -187,19 +187,23 @@ public class FleeingRobot : MonoBehaviour
             return;
         }
 
-        if (agent.pathPending) return;
-
-        if (agent.remainingDistance <= agent.stoppingDistance + 0.25f)
+        if (EnemyMovement.HasReachedDestination(agent))
         {
+            if (!agent.isStopped)
+                EnemyMovement.StopAgent(agent);
+
             patrolWaitTimer += Time.deltaTime;
             if (patrolWaitTimer >= patrolWaitTime)
             {
                 patrolWaitTimer = 0f;
+                agent.isStopped = false;
                 PickNewPatrolWaypoint();
             }
+
             return;
         }
 
+        agent.isStopped = false;
         lastSteeringVelocity = SteeringBehaviors.Arrive(
             transform.position, patrolWaypoint, agent.speed, arrivalSlowingRadius);
         EnemyMovement.NavigateWithArrive(
@@ -209,8 +213,9 @@ public class FleeingRobot : MonoBehaviour
     void PickNewPatrolWaypoint()
     {
         hasPatrolWaypoint = false;
+        agent.isStopped = false;
 
-        for (int attempt = 0; attempt < 8; attempt++)
+        for (int attempt = 0; attempt < 12; attempt++)
         {
             Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
             randomPoint.y = 0f;
@@ -218,12 +223,12 @@ public class FleeingRobot : MonoBehaviour
 
             if (NavMesh.SamplePosition(randomPoint, out NavMeshHit hit, patrolRadius, NavMesh.AllAreas))
             {
-                if (Vector3.Distance(hit.position, transform.position) > 2f)
+                float minDistance = attempt < 8 ? 2f : 1f;
+                if (Vector3.Distance(hit.position, transform.position) > minDistance)
                 {
                     patrolWaypoint = hit.position;
                     hasPatrolWaypoint = true;
-                    EnemyMovement.NavigateWithArrive(
-                        agent, patrolWaypoint, agent.speed, arrivalSlowingRadius, patrolSteerDistance);
+                    EnemyMovement.TrySetNavMeshDestination(agent, patrolWaypoint, arrivalSlowingRadius);
                     return;
                 }
             }

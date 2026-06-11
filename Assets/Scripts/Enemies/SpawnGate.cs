@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class SpawnGate : MonoBehaviour
 {
@@ -21,9 +22,19 @@ public class SpawnGate : MonoBehaviour
     {
         while (player && currentSpawns < maxSpawns)
         {
-            Instantiate(robotPrefab, spawnPoint.position, transform.rotation);
+            SpawnRobot();
             currentSpawns++;
             yield return new WaitForSeconds(spawnTime);
         }
+    }
+
+    void SpawnRobot()
+    {
+        if (!robotPrefab || !spawnPoint) return;
+
+        GameObject robot = Instantiate(robotPrefab, spawnPoint.position, spawnPoint.rotation);
+
+        if (robot.TryGetComponent(out NavMeshAgent agent))
+            EnemyMovement.EnsureOnNavMesh(agent);
     }
 }

@@ -15,8 +15,7 @@ public static class EnemyMovement
 {
     public static bool NavigateWithSeek(NavMeshAgent agent, Vector3 target, float maxSpeed, float steerDistance = 6f)
     {
-        Vector3 velocity = SteeringBehaviors.Seek(agent.transform.position, target, maxSpeed);
-        return ApplySteeringToNavMesh(agent, velocity, steerDistance);
+        return NavigateToPosition(agent, target, steerDistance * 0.5f, 1.5f);
     }
 
     public static bool NavigateWithArrive(
@@ -26,9 +25,7 @@ public static class EnemyMovement
         float slowingRadius,
         float steerDistance = 6f)
     {
-        Vector3 velocity = SteeringBehaviors.Arrive(
-            agent.transform.position, target, maxSpeed, slowingRadius);
-        return ApplySteeringToNavMesh(agent, velocity, steerDistance);
+        return NavigateToPosition(agent, target, Mathf.Max(slowingRadius, 2f), 1.5f);
     }
 
     public static bool NavigateWithPursue(
@@ -40,13 +37,10 @@ public static class EnemyMovement
         if (target == null) return false;
 
         Vector3 targetVelocity = GetTargetVelocity(target);
-        Vector3 velocity = SteeringBehaviors.Pursue(
-            agent.transform.position,
-            target.position,
-            targetVelocity,
-            maxSpeed);
+        Vector3 predictedPosition = GetPursuePosition(
+            agent.transform.position, target.position, targetVelocity, maxSpeed);
 
-        return ApplySteeringToNavMesh(agent, velocity, steerDistance);
+        return NavigateToPosition(agent, predictedPosition, steerDistance * 0.5f, 2f);
     }
 
     public static bool NavigateWithFlee(
@@ -55,10 +49,8 @@ public static class EnemyMovement
         float maxSpeed,
         float fleeDistance)
     {
-        Vector3 velocity = SteeringBehaviors.Flee(
-            agent.transform.position, threatPosition, maxSpeed);
-
-        return ApplySteeringToNavMesh(agent, velocity, fleeDistance);
+        Vector3 fleeTarget = GetFleePosition(agent.transform.position, threatPosition, fleeDistance);
+        return NavigateToPosition(agent, fleeTarget, fleeDistance * 0.5f, fleeDistance * 0.3f);
     }
 
     public static bool NavigateWithEvade(
@@ -70,13 +62,10 @@ public static class EnemyMovement
         if (threat == null) return false;
 
         Vector3 threatVelocity = GetTargetVelocity(threat);
-        Vector3 velocity = SteeringBehaviors.Evade(
-            agent.transform.position,
-            threat.position,
-            threatVelocity,
-            maxSpeed);
+        Vector3 evadeTarget = GetEvadePosition(
+            agent.transform.position, threat.position, threatVelocity, maxSpeed, evadeDistance);
 
-        return ApplySteeringToNavMesh(agent, velocity, evadeDistance);
+        return NavigateToPosition(agent, evadeTarget, evadeDistance * 0.5f, evadeDistance * 0.3f);
     }
 
     public static bool NavigateWithWander(
@@ -120,6 +109,27 @@ public static class EnemyMovement
         return false;
     }
 
+    public static bool NavigateToPosition(
+        NavMeshAgent agent,
+        Vector3 worldPosition,
+        float sampleRadius = 2f,
+        float refreshDistance = 1.5f)
+    {
+        if (agent == null || !agent.isOnNavMesh) return false;
+
+        if (!agent.isStopped && !agent.pathPending && agent.hasPath)
+        {
+            if (agent.pathStatus != NavMeshPathStatus.PathInvalid)
+            {
+                float destinationShift = Vector3.Distance(agent.destination, worldPosition);
+                if (destinationShift < refreshDistance)
+                    return true;
+            }
+        }
+
+        return TrySetNavMeshDestination(agent, worldPosition, sampleRadius);
+    }
+
     public static bool TrySetNavMeshDestination(NavMeshAgent agent, Vector3 worldPosition, float sampleRadius = 2f)
     {
         if (agent == null) return false;
@@ -134,12 +144,66 @@ public static class EnemyMovement
         return false;
     }
 
-    public static void EnsureOnNavMesh(NavMeshAgent agent, float sampleRadius = 15f)
+    public static bool HasReachedDestination(NavMeshAgent agent, float extraTolerance = 0.25f)
+    {
+        if (agent == null || !agent.isOnNavMesh) return false;
+        if (agent.pathPending) return false;
+        if (!agent.hasPath) return false;
+        if (agent.pathStatus == NavMeshPathStatus.PathInvalid) return false;
+
+        return agent.remainingDistance <= agent.stoppingDistance + extraTolerance;
+    }
+
+    public static void StopAgent(NavMeshAgent agent)
+    {
+        if (agent == null) return;
+
+        agent.isStopped = true;
+        agent.ResetPath();
+        agent.velocity = Vector3.zero;
+    }
+
+    public static void EnsureOnNavMesh(NavMeshAgent agent, float sampleRadius = 20f)
     {
         if (agent == null || agent.isOnNavMesh) return;
 
         if (NavMesh.SamplePosition(agent.transform.position, out NavMeshHit hit, sampleRadius, NavMesh.AllAreas))
             agent.Warp(hit.position);
+    }
+
+    public static Vector3 GetPursuePosition(
+        Vector3 position,
+        Vector3 targetPosition,
+        Vector3 targetVelocity,
+        float maxSpeed)
+    {
+        float distance = Vector3.Distance(position, targetPosition);
+        float lookahead = maxSpeed > 0f ? distance / maxSpeed : 0f;
+        return targetPosition + targetVelocity * lookahead;
+    }
+
+    static Vector3 GetFleePosition(Vector3 position, Vector3 threatPosition, float fleeDistance)
+    {
+        Vector3 away = position - threatPosition;
+        away.y = 0f;
+
+        if (away.sqrMagnitude < 0.01f)
+            away = new Vector3(Random.value - 0.5f, 0f, Random.value - 0.5f);
+
+        return position + away.normalized * fleeDistance;
+    }
+
+    static Vector3 GetEvadePosition(
+        Vector3 position,
+        Vector3 threatPosition,
+        Vector3 threatVelocity,
+        float maxSpeed,
+        float evadeDistance)
+    {
+        float distance = Vector3.Distance(position, threatPosition);
+        float lookahead = maxSpeed > 0f ? distance / maxSpeed : 0f;
+        Vector3 predictedThreatPosition = threatPosition + threatVelocity * lookahead;
+        return GetFleePosition(position, predictedThreatPosition, evadeDistance);
     }
 
     public static Vector3 GetTargetVelocity(Transform target)

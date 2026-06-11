@@ -216,14 +216,7 @@ public class ChargerRobot : MonoBehaviour
             wanderJitter,
             agent.speed);
 
-        EnemyMovement.NavigateWithWander(
-            agent,
-            ref wanderAngle,
-            wanderRadius,
-            wanderDistance,
-            wanderJitter,
-            agent.speed,
-            wanderSteerDistance);
+        EnemyMovement.ApplySteeringToNavMesh(agent, lastSteeringVelocity, wanderSteerDistance);
     }
 
     void UpdateChargeSeek()

@@ -93,8 +93,8 @@ public class Robot : MonoBehaviour
         minPatrolLegDistance = 6f;
         patrolAcceleration = 12f;
         patrolAngularSpeed = 180f;
-        chaseSpeed = 5f;
-        chaseAcceleration = 10f;
+        chaseSpeed = 6.5f;
+        chaseAcceleration = 14f;
         arrivalSlowingRadius = 3f;
         patrolSteerDistance = 12f;
         pursueSteerDistance = 10f;
@@ -174,20 +174,23 @@ public class Robot : MonoBehaviour
             return;
         }
 
-        if (agent.pathPending) return;
-
-        if (agent.remainingDistance <= agent.stoppingDistance + 0.25f)
+        if (EnemyMovement.HasReachedDestination(agent))
         {
+            if (!agent.isStopped)
+                EnemyMovement.StopAgent(agent);
+
             patrolWaitTimer += Time.deltaTime;
             if (patrolWaitTimer >= patrolWaitTime)
             {
                 patrolWaitTimer = 0f;
+                agent.isStopped = false;
                 PickNewPatrolWaypoint();
             }
+
             return;
         }
 
-        // Steering Arrive → NavMesh A*
+        agent.isStopped = false;
         lastSteeringVelocity = SteeringBehaviors.Arrive(
             transform.position, patrolWaypoint, agent.speed, arrivalSlowingRadius);
         EnemyMovement.NavigateWithArrive(
@@ -196,7 +199,7 @@ public class Robot : MonoBehaviour
 
     void UpdateChaseState()
     {
-        // Steering Pursue → NavMesh A* (intercepta al jugador)
+        agent.isStopped = false;
         lastSteeringVelocity = SteeringBehaviors.Pursue(
             transform.position,
             player.transform.position,
@@ -209,8 +212,9 @@ public class Robot : MonoBehaviour
     void PickNewPatrolWaypoint()
     {
         hasPatrolWaypoint = false;
+        agent.isStopped = false;
 
-        for (int attempt = 0; attempt < 12; attempt++)
+        for (int attempt = 0; attempt < 16; attempt++)
         {
             Vector3 randomPoint = Random.insideUnitSphere * patrolRadius;
             randomPoint.y = 0f;
@@ -218,14 +222,27 @@ public class Robot : MonoBehaviour
 
             if (NavMesh.SamplePosition(randomPoint, out NavMeshHit hit, patrolRadius, NavMesh.AllAreas))
             {
-                if (Vector3.Distance(hit.position, transform.position) > minPatrolLegDistance)
+                float minDistance = attempt < 10 ? minPatrolLegDistance : 2f;
+                if (Vector3.Distance(hit.position, transform.position) > minDistance)
                 {
                     patrolWaypoint = hit.position;
                     hasPatrolWaypoint = true;
-                    EnemyMovement.NavigateWithArrive(
-                        agent, patrolWaypoint, agent.speed, arrivalSlowingRadius, patrolSteerDistance);
+                    EnemyMovement.TrySetNavMeshDestination(agent, patrolWaypoint, arrivalSlowingRadius);
                     return;
                 }
+            }
+        }
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit fallbackHit, patrolRadius, NavMesh.AllAreas))
+        {
+            Vector3 fallback = fallbackHit.position + Random.insideUnitSphere * minPatrolLegDistance;
+            fallback.y = fallbackHit.position.y;
+
+            if (NavMesh.SamplePosition(fallback, out NavMeshHit nearHit, minPatrolLegDistance, NavMesh.AllAreas))
+            {
+                patrolWaypoint = nearHit.position;
+                hasPatrolWaypoint = true;
+                EnemyMovement.TrySetNavMeshDestination(agent, patrolWaypoint, arrivalSlowingRadius);
             }
         }
     }
