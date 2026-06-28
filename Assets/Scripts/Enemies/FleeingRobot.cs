@@ -106,13 +106,27 @@ public class FleeingRobot : MonoBehaviour
         canSeePlayer = distanceToPlayer <= visionRange
             && EnemyVision.CanSeePlayer(transform.position, player.transform.position, visionRange, visionLayers);
 
-        FleeingState newState;
-        if (distanceToPlayer < fleeTriggerDistance)
-            newState = FleeingState.Flee;
-        else if (canSeePlayer && distanceToPlayer >= resumeAttackDistance)
-            newState = FleeingState.Attack;
-        else
-            newState = FleeingState.Patrol;
+        // Per-state hysteresis prevents oscillation in the 10–12 m dead zone.
+        FleeingState newState = currentState;
+        switch (currentState)
+        {
+            case FleeingState.Patrol:
+                if (distanceToPlayer < fleeTriggerDistance)
+                    newState = FleeingState.Flee;
+                else if (canSeePlayer)
+                    newState = FleeingState.Attack;
+                break;
+            case FleeingState.Attack:
+                if (distanceToPlayer < fleeTriggerDistance)
+                    newState = FleeingState.Flee;
+                else if (!canSeePlayer)
+                    newState = FleeingState.Patrol;
+                break;
+            case FleeingState.Flee:
+                if (distanceToPlayer > resumeAttackDistance)
+                    newState = canSeePlayer ? FleeingState.Attack : FleeingState.Patrol;
+                break;
+        }
 
         if (newState != currentState)
         {
@@ -187,23 +201,26 @@ public class FleeingRobot : MonoBehaviour
             return;
         }
 
-        if (EnemyMovement.HasReachedDestination(agent))
+        // Same isStopped-gate fix as Robot.cs: avoids oscillation after StopAgent
+        // clears the path and HasReachedDestination briefly returns false.
+        if (agent.isStopped)
         {
-            if (!agent.isStopped)
-                EnemyMovement.StopAgent(agent);
-
             patrolWaitTimer += Time.deltaTime;
             if (patrolWaitTimer >= patrolWaitTime)
             {
                 patrolWaitTimer = 0f;
-                agent.isStopped = false;
                 PickNewPatrolWaypoint();
             }
-
             return;
         }
 
-        agent.isStopped = false;
+        if (EnemyMovement.HasReachedDestination(agent))
+        {
+            EnemyMovement.StopAgent(agent);
+            patrolWaitTimer = 0f;
+            return;
+        }
+
         lastSteeringVelocity = SteeringBehaviors.Arrive(
             transform.position, patrolWaypoint, agent.speed, arrivalSlowingRadius);
         EnemyMovement.NavigateWithArrive(

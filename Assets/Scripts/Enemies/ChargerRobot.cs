@@ -33,8 +33,9 @@ public class ChargerRobot : MonoBehaviour
     [SerializeField] float patrolAngularSpeed = 200f;
     [SerializeField] float wanderRadius = 2f;
     [SerializeField] float wanderDistance = 4f;
-    [SerializeField] float wanderJitter = 25f;
+    [SerializeField] float wanderJitter = 1.5f;
     [SerializeField] float wanderSteerDistance = 5f;
+    [SerializeField] float wanderUpdateInterval = 0.3f;
 
     [Header("Charge — Seek")]
     [SerializeField] float chargeSpeed = 9f;
@@ -70,6 +71,7 @@ public class ChargerRobot : MonoBehaviour
     float wanderAngle;
     float recoverTimer;
     float chargeTimer;
+    float wanderTimer;
     bool canSeePlayer;
     Vector3 lastSteeringVelocity;
 
@@ -207,6 +209,14 @@ public class ChargerRobot : MonoBehaviour
 
     void UpdatePatrolWander()
     {
+        // Throttle destination updates so the agent can build momentum between changes.
+        wanderTimer += Time.deltaTime;
+        bool shouldUpdate = wanderTimer >= wanderUpdateInterval
+                            || lastSteeringVelocity.sqrMagnitude < 0.01f;
+
+        if (!shouldUpdate) return;
+
+        wanderTimer = 0f;
         lastSteeringVelocity = SteeringBehaviors.Wander(
             transform.position,
             transform.forward,

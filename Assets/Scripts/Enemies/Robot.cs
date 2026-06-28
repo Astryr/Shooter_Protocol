@@ -174,23 +174,28 @@ public class Robot : MonoBehaviour
             return;
         }
 
-        if (EnemyMovement.HasReachedDestination(agent))
+        // Gate first: if already stopped at waypoint, just tick the wait timer.
+        // This avoids the oscillation caused by HasReachedDestination returning false
+        // immediately after StopAgent clears the path.
+        if (agent.isStopped)
         {
-            if (!agent.isStopped)
-                EnemyMovement.StopAgent(agent);
-
             patrolWaitTimer += Time.deltaTime;
             if (patrolWaitTimer >= patrolWaitTime)
             {
                 patrolWaitTimer = 0f;
-                agent.isStopped = false;
                 PickNewPatrolWaypoint();
             }
-
             return;
         }
 
-        agent.isStopped = false;
+        // Just arrived — stop and start timer.
+        if (EnemyMovement.HasReachedDestination(agent))
+        {
+            EnemyMovement.StopAgent(agent);
+            patrolWaitTimer = 0f;
+            return;
+        }
+
         lastSteeringVelocity = SteeringBehaviors.Arrive(
             transform.position, patrolWaypoint, agent.speed, arrivalSlowingRadius);
         EnemyMovement.NavigateWithArrive(
